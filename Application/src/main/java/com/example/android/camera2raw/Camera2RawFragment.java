@@ -306,7 +306,7 @@ public class Camera2RawFragment extends Fragment
      * This is used to allow us to clean up the {@link ImageReader} when all background tasks using
      * its {@link Image}s have completed.
      */
-    private RefCountedAutoCloseable<ImageReader> mRawImageReader;
+   // private RefCountedAutoCloseable<ImageReader> mRawImageReader;
 
     /**
      * Whether or not the currently configured camera device is fixed-focus.
@@ -415,7 +415,7 @@ public class Camera2RawFragment extends Fragment
      * This a callback object for the {@link ImageReader}. "onImageAvailable" will be called when a
      * RAW image is ready to be saved.
      */
-    private final ImageReader.OnImageAvailableListener mOnRawImageAvailableListener
+  /*  private final ImageReader.OnImageAvailableListener mOnRawImageAvailableListener
             = new ImageReader.OnImageAvailableListener() {
 
         @Override
@@ -423,7 +423,7 @@ public class Camera2RawFragment extends Fragment
             dequeueAndSaveImage(mRawResultQueue, mRawImageReader);
         }
 
-    };
+    };*/
 
     /**
      * A {@link CameraCaptureSession.CaptureCallback} that handles events for the preview and
@@ -708,11 +708,11 @@ public class Camera2RawFragment extends Fragment
                         = manager.getCameraCharacteristics(cameraId);
 
                 // We only use a camera that supports RAW in this sample.
-                if (!contains(characteristics.get(
-                                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES),
+               /* if (!contains(characteristics.get(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES),
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
                     continue;
-                }
+                }*/
 
                 StreamConfigurationMap map = characteristics.get(
                         CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -722,9 +722,9 @@ public class Camera2RawFragment extends Fragment
                         Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
                         new CompareSizesByArea());
 
-                Size largestRaw = Collections.max(
+              /*  Size largestRaw = Collections.max(
                         Arrays.asList(map.getOutputSizes(ImageFormat.RAW_SENSOR)),
-                        new CompareSizesByArea());
+                        new CompareSizesByArea());*/
 
                 synchronized (mCameraStateLock) {
                     // Set up ImageReaders for JPEG and RAW outputs.  Place these in a reference
@@ -738,13 +738,13 @@ public class Camera2RawFragment extends Fragment
                     mJpegImageReader.get().setOnImageAvailableListener(
                             mOnJpegImageAvailableListener, mBackgroundHandler);
 
-                    if (mRawImageReader == null || mRawImageReader.getAndRetain() == null) {
+                 /*   if (mRawImageReader == null || mRawImageReader.getAndRetain() == null) {
                         mRawImageReader = new RefCountedAutoCloseable<>(
                                 ImageReader.newInstance(largestRaw.getWidth(),
-                                        largestRaw.getHeight(), ImageFormat.RAW_SENSOR, /*maxImages*/ 5));
+                                        largestRaw.getHeight(), ImageFormat.RAW_SENSOR, *//*maxImages*//* 5));
                     }
                     mRawImageReader.get().setOnImageAvailableListener(
-                            mOnRawImageAvailableListener, mBackgroundHandler);
+                            mOnRawImageAvailableListener, mBackgroundHandler);*/
 
                     mCharacteristics = characteristics;
                     mCameraId = cameraId;
@@ -875,10 +875,10 @@ public class Camera2RawFragment extends Fragment
                     mJpegImageReader.close();
                     mJpegImageReader = null;
                 }
-                if (null != mRawImageReader) {
+              /*  if (null != mRawImageReader) {
                     mRawImageReader.close();
                     mRawImageReader = null;
-                }
+                }*/
             }
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
@@ -935,8 +935,7 @@ public class Camera2RawFragment extends Fragment
 
             // Here, we create a CameraCaptureSession for camera preview.
             mCameraDevice.createCaptureSession(Arrays.asList(surface,
-                            mJpegImageReader.get().getSurface(),
-                            mRawImageReader.get().getSurface()), new CameraCaptureSession.StateCallback() {
+                    mJpegImageReader.get().getSurface()), new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession cameraCaptureSession) {
                             synchronized (mCameraStateLock) {
@@ -994,7 +993,7 @@ public class Camera2RawFragment extends Fragment
         if (!mNoAFRun) {
             // If there is a "continuous picture" mode available, use it, otherwise default to AUTO.
             if (contains(mCharacteristics.get(
-                            CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES),
+                    CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES),
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
                 builder.set(CaptureRequest.CONTROL_AF_MODE,
                         CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
@@ -1007,7 +1006,7 @@ public class Camera2RawFragment extends Fragment
         // If there is an auto-magical flash control mode available, use it, otherwise default to
         // the "on" mode, which is guaranteed to always be available.
         if (contains(mCharacteristics.get(
-                        CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
+                CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
                 CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)) {
             builder.set(CaptureRequest.CONTROL_AE_MODE,
                     CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
@@ -1018,7 +1017,7 @@ public class Camera2RawFragment extends Fragment
 
         // If there is an auto-magical white balance control mode available, use it.
         if (contains(mCharacteristics.get(
-                        CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
+                CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
                 CaptureRequest.CONTROL_AWB_MODE_AUTO)) {
             // Allow AWB to run auto-magically if this device supports this
             builder.set(CaptureRequest.CONTROL_AWB_MODE,
@@ -1043,106 +1042,108 @@ public class Camera2RawFragment extends Fragment
                 return;
             }
 
-            StreamConfigurationMap map = mCharacteristics.get(
-                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            if (mCharacteristics != null) {
+                StreamConfigurationMap map = mCharacteristics.get(
+                        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
-            // For still image captures, we always use the largest available size.
-            Size largestJpeg = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
-                    new CompareSizesByArea());
+                // For still image captures, we always use the largest available size.
+                Size largestJpeg = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
+                        new CompareSizesByArea());
 
-            // Find the rotation of the device relative to the native device orientation.
-            int deviceRotation = activity.getWindowManager().getDefaultDisplay().getRotation();
-            Point displaySize = new Point();
-            activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
+                // Find the rotation of the device relative to the native device orientation.
+                int deviceRotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+                Point displaySize = new Point();
+                activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
 
-            // Find the rotation of the device relative to the camera sensor's orientation.
-            int totalRotation = sensorToDeviceRotation(mCharacteristics, deviceRotation);
+                // Find the rotation of the device relative to the camera sensor's orientation.
+                int totalRotation = sensorToDeviceRotation(mCharacteristics, deviceRotation);
 
-            // Swap the view dimensions for calculation as needed if they are rotated relative to
-            // the sensor.
-            boolean swappedDimensions = totalRotation == 90 || totalRotation == 270;
-            int rotatedViewWidth = viewWidth;
-            int rotatedViewHeight = viewHeight;
-            int maxPreviewWidth = displaySize.x;
-            int maxPreviewHeight = displaySize.y;
+                // Swap the view dimensions for calculation as needed if they are rotated relative to
+                // the sensor.
+                boolean swappedDimensions = totalRotation == 90 || totalRotation == 270;
+                int rotatedViewWidth = viewWidth;
+                int rotatedViewHeight = viewHeight;
+                int maxPreviewWidth = displaySize.x;
+                int maxPreviewHeight = displaySize.y;
 
-            if (swappedDimensions) {
-                rotatedViewWidth = viewHeight;
-                rotatedViewHeight = viewWidth;
-                maxPreviewWidth = displaySize.y;
-                maxPreviewHeight = displaySize.x;
-            }
+                if (swappedDimensions) {
+                    rotatedViewWidth = viewHeight;
+                    rotatedViewHeight = viewWidth;
+                    maxPreviewWidth = displaySize.y;
+                    maxPreviewHeight = displaySize.x;
+                }
 
-            // Preview should not be larger than display size and 1080p.
-            if (maxPreviewWidth > MAX_PREVIEW_WIDTH) {
-                maxPreviewWidth = MAX_PREVIEW_WIDTH;
-            }
+                // Preview should not be larger than display size and 1080p.
+                if (maxPreviewWidth > MAX_PREVIEW_WIDTH) {
+                    maxPreviewWidth = MAX_PREVIEW_WIDTH;
+                }
 
-            if (maxPreviewHeight > MAX_PREVIEW_HEIGHT) {
-                maxPreviewHeight = MAX_PREVIEW_HEIGHT;
-            }
+                if (maxPreviewHeight > MAX_PREVIEW_HEIGHT) {
+                    maxPreviewHeight = MAX_PREVIEW_HEIGHT;
+                }
 
-            // Find the best preview size for these view dimensions and configured JPEG size.
-            Size previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
-                    rotatedViewWidth, rotatedViewHeight, maxPreviewWidth, maxPreviewHeight,
-                    largestJpeg);
+                // Find the best preview size for these view dimensions and configured JPEG size.
+                Size previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
+                        rotatedViewWidth, rotatedViewHeight, maxPreviewWidth, maxPreviewHeight,
+                        largestJpeg);
 
-            if (swappedDimensions) {
-                mTextureView.setAspectRatio(
-                        previewSize.getHeight(), previewSize.getWidth());
-            } else {
-                mTextureView.setAspectRatio(
-                        previewSize.getWidth(), previewSize.getHeight());
-            }
+                if (swappedDimensions) {
+                    mTextureView.setAspectRatio(
+                            previewSize.getHeight(), previewSize.getWidth());
+                } else {
+                    mTextureView.setAspectRatio(
+                            previewSize.getWidth(), previewSize.getHeight());
+                }
 
-            // Find rotation of device in degrees (reverse device orientation for front-facing
-            // cameras).
-            int rotation = (mCharacteristics.get(CameraCharacteristics.LENS_FACING) ==
-                    CameraCharacteristics.LENS_FACING_FRONT) ?
-                    (360 + ORIENTATIONS.get(deviceRotation)) % 360 :
-                    (360 - ORIENTATIONS.get(deviceRotation)) % 360;
+                // Find rotation of device in degrees (reverse device orientation for front-facing
+                // cameras).
+                int rotation = (mCharacteristics.get(CameraCharacteristics.LENS_FACING) ==
+                        CameraCharacteristics.LENS_FACING_FRONT) ?
+                        (360 + ORIENTATIONS.get(deviceRotation)) % 360 :
+                        (360 - ORIENTATIONS.get(deviceRotation)) % 360;
 
-            Matrix matrix = new Matrix();
-            RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
-            RectF bufferRect = new RectF(0, 0, previewSize.getHeight(), previewSize.getWidth());
-            float centerX = viewRect.centerX();
-            float centerY = viewRect.centerY();
+                Matrix matrix = new Matrix();
+                RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+                RectF bufferRect = new RectF(0, 0, previewSize.getHeight(), previewSize.getWidth());
+                float centerX = viewRect.centerX();
+                float centerY = viewRect.centerY();
 
-            // Initially, output stream images from the Camera2 API will be rotated to the native
-            // device orientation from the sensor's orientation, and the TextureView will default to
-            // scaling these buffers to fill it's view bounds.  If the aspect ratios and relative
-            // orientations are correct, this is fine.
-            //
-            // However, if the device orientation has been rotated relative to its native
-            // orientation so that the TextureView's dimensions are swapped relative to the
-            // native device orientation, we must do the following to ensure the output stream
-            // images are not incorrectly scaled by the TextureView:
-            //   - Undo the scale-to-fill from the output buffer's dimensions (i.e. its dimensions
-            //     in the native device orientation) to the TextureView's dimension.
-            //   - Apply a scale-to-fill from the output buffer's rotated dimensions
-            //     (i.e. its dimensions in the current device orientation) to the TextureView's
-            //     dimensions.
-            //   - Apply the rotation from the native device orientation to the current device
-            //     rotation.
-            if (Surface.ROTATION_90 == deviceRotation || Surface.ROTATION_270 == deviceRotation) {
-                bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
-                matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
-                float scale = Math.max(
-                        (float) viewHeight / previewSize.getHeight(),
-                        (float) viewWidth / previewSize.getWidth());
-                matrix.postScale(scale, scale, centerX, centerY);
+                // Initially, output stream images from the Camera2 API will be rotated to the native
+                // device orientation from the sensor's orientation, and the TextureView will default to
+                // scaling these buffers to fill it's view bounds.  If the aspect ratios and relative
+                // orientations are correct, this is fine.
+                //
+                // However, if the device orientation has been rotated relative to its native
+                // orientation so that the TextureView's dimensions are swapped relative to the
+                // native device orientation, we must do the following to ensure the output stream
+                // images are not incorrectly scaled by the TextureView:
+                //   - Undo the scale-to-fill from the output buffer's dimensions (i.e. its dimensions
+                //     in the native device orientation) to the TextureView's dimension.
+                //   - Apply a scale-to-fill from the output buffer's rotated dimensions
+                //     (i.e. its dimensions in the current device orientation) to the TextureView's
+                //     dimensions.
+                //   - Apply the rotation from the native device orientation to the current device
+                //     rotation.
+                if (Surface.ROTATION_90 == deviceRotation || Surface.ROTATION_270 == deviceRotation) {
+                    bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+                    matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+                    float scale = Math.max(
+                            (float) viewHeight / previewSize.getHeight(),
+                            (float) viewWidth / previewSize.getWidth());
+                    matrix.postScale(scale, scale, centerX, centerY);
 
-            }
-            matrix.postRotate(rotation, centerX, centerY);
+                }
+                matrix.postRotate(rotation, centerX, centerY);
 
-            mTextureView.setTransform(matrix);
+                mTextureView.setTransform(matrix);
 
-            // Start or restart the active capture session if the preview was initialized or
-            // if its aspect ratio changed significantly.
-            if (mPreviewSize == null || !checkAspectsEqual(previewSize, mPreviewSize)) {
-                mPreviewSize = previewSize;
-                if (mState != STATE_CLOSED) {
-                    createCameraPreviewSessionLocked();
+                // Start or restart the active capture session if the preview was initialized or
+                // if its aspect ratio changed significantly.
+                if (mPreviewSize == null || !checkAspectsEqual(previewSize, mPreviewSize)) {
+                    mPreviewSize = previewSize;
+                    if (mState != STATE_CLOSED) {
+                        createCameraPreviewSessionLocked();
+                    }
                 }
             }
         }
@@ -1215,7 +1216,7 @@ public class Camera2RawFragment extends Fragment
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
 
             captureBuilder.addTarget(mJpegImageReader.get().getSurface());
-            captureBuilder.addTarget(mRawImageReader.get().getSurface());
+           // captureBuilder.addTarget(mRawImageReader.get().getSurface());
 
             // Use the same AE and AF modes as the preview.
             setup3AControlsLocked(captureBuilder);
@@ -1413,18 +1414,18 @@ public class Camera2RawFragment extends Fragment
             // If saving the file succeeded, update MediaStore.
             if (success) {
                 MediaScannerConnection.scanFile(mContext, new String[]{mFile.getPath()},
-                /*mimeTypes*/null, new MediaScannerConnection.MediaScannerConnectionClient() {
-                    @Override
-                    public void onMediaScannerConnected() {
-                        // Do nothing
-                    }
+                        /*mimeTypes*/null, new MediaScannerConnection.MediaScannerConnectionClient() {
+                            @Override
+                            public void onMediaScannerConnected() {
+                                // Do nothing
+                            }
 
-                    @Override
-                    public void onScanCompleted(String path, Uri uri) {
-                        Log.i(TAG, "Scanned " + path + ":");
-                        Log.i(TAG, "-> uri=" + uri);
-                    }
-                });
+                            @Override
+                            public void onScanCompleted(String path, Uri uri) {
+                                Log.i(TAG, "Scanned " + path + ":");
+                                Log.i(TAG, "-> uri=" + uri);
+                            }
+                        });
             }
         }
 
@@ -1632,7 +1633,7 @@ public class Camera2RawFragment extends Fragment
      * @return The optimal {@code Size}, or an arbitrary one if none were big enough
      */
     private static Size chooseOptimalSize(Size[] choices, int textureViewWidth,
-            int textureViewHeight, int maxWidth, int maxHeight, Size aspectRatio) {
+                                          int textureViewHeight, int maxWidth, int maxHeight, Size aspectRatio) {
         // Collect the supported resolutions that are at least as big as the preview Surface
         List<Size> bigEnough = new ArrayList<>();
         // Collect the supported resolutions that are smaller than the preview Surface
@@ -1643,7 +1644,7 @@ public class Camera2RawFragment extends Fragment
             if (option.getWidth() <= maxWidth && option.getHeight() <= maxHeight &&
                     option.getHeight() == option.getWidth() * h / w) {
                 if (option.getWidth() >= textureViewWidth &&
-                    option.getHeight() >= textureViewHeight) {
+                        option.getHeight() >= textureViewHeight) {
                     bigEnough.add(option);
                 } else {
                     notBigEnough.add(option);
