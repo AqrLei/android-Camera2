@@ -10,6 +10,7 @@ import android.media.ImageReader
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.util.Log
@@ -19,18 +20,22 @@ import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 import java.util.*
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * @author  aqrLei on 2018/8/13
  */
 class Camera2Fragment : Fragment(), View.OnClickListener {
     companion object {
+        private const val PRE_CAPTURE_TIMEOUT_MS = 1000
+
         private const val MAX_PREVIEW_WIDTH = 1920
         private const val MAX_PREVIEW_HEIGHT = 1080
 
         private const val STATE_CLOSED = 0
         private const val STATE_OPENED = 1
         private const val STATE_PREVIEW = 2
+        private const val STATE_WAITING_FOR_3A_CONVERGENCE = 3
 
         private val CAMERA_PERMISSIONS = arrayOf(
                 Manifest.permission.CAMERA,
@@ -109,13 +114,60 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         //TODO dequeueAndSaveImage
     }
     private val mPreCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
-        override fun onCaptureProgressed(session: CameraCaptureSession?, request: CaptureRequest?, partialResult: CaptureResult?) {
-            super.onCaptureProgressed(session, request, partialResult)
+        private fun process(result: CaptureResult) {
+            synchronized(mCameraStateLock) {
+                when (mState) {
+                    STATE_WAITING_FOR_3A_CONVERGENCE -> {
+                        var readyToCapture: Boolean
+                        if (!mNoAFRun) {
+                            val afState = result.get(CaptureResult.CONTROL_AF_STATE) ?: return
+
+                            readyToCapture = (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
+                                    afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED)
+                            if (!isLegacyLocked()) {
+                                val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+                                val awbState = result.get(CaptureResult.CONTROL_AWB_MODE)
+                                if (aeState == null || awbState == null) {
+                                    return
+                                }
+                                readyToCapture = readyToCapture &&
+                                        aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED &&
+                                        awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED
+                            }
+                            if (!readyToCapture && hitTimeoutLocked()) {
+                                readyToCapture = true
+                            }
+
+                            if (readyToCapture && mPendingUserCaptures > 0) {
+                                while (mPendingUserCaptures > 0) {
+                                    captureStillPictureLocked()
+                                    mPendingUserCaptures--
+                                }
+                            }
+                            mState = STATE_PREVIEW
+
+
+                        }
+
+                    }
+                    else -> {
+                        // do nothing
+                    }
+                }
+            }
+
         }
 
-        override fun onCaptureCompleted(session: CameraCaptureSession?, request: CaptureRequest?, result: TotalCaptureResult?) {
-            super.onCaptureCompleted(session, request, result)
+        override fun onCaptureProgressed(session: CameraCaptureSession?, request: CaptureRequest?, partialResult: CaptureResult) {
+            process(partialResult)
         }
+
+        override fun onCaptureCompleted(session: CameraCaptureSession?, request: CaptureRequest?, result: TotalCaptureResult) {
+            process(result)
+        }
+    }
+    private val mCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+
     }
 
     private var mBackgroundThread: HandlerThread? = null
@@ -311,7 +363,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             return
         }
         if (!hasAllPermissionsGranted()) {
-            //TODO requestCameraPermissions()
+            requestCameraPermissions()
             return
         }
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -375,6 +427,10 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
     }
 
+    private fun requestCameraPermissions() {
+        //TODO RequestPermission
+    }
+
     override fun onPause() {
 
         mOrientationListener?.disable()
@@ -432,7 +488,80 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     override fun onClick(v: View?) {
-
+        when (v?.id) {
+            R.id.picture -> {
+                takePicture()
+            }
+        }
     }
+
+    private fun takePicture() {
+        synchronized(mCameraStateLock) {
+            mPendingUserCaptures++
+            if (mState != STATE_PREVIEW) {
+                return
+            }
+            try {
+                if (!mNoAFRun) {
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                            CameraMetadata.CONTROL_AF_TRIGGER_START)
+                }
+                if (!isLegacyLocked()) {
+                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
+                            CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START)
+                }
+                mState = STATE_WAITING_FOR_3A_CONVERGENCE
+                startTimerLocked()
+                mCaptureSession?.capture(mPreviewRequestBuilder.build(), mPreCaptureCallback, mBackgroundHandler)
+
+            } catch (e: CameraAccessException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private val mRequestCounter = AtomicInteger()
+    private val mJpegResultQueue = TreeMap<Int, ImageSaver.ImageSaverBuilder>()
+    private fun captureStillPictureLocked() {
+        try {
+            if (null == activity || null == mCameraDevice) {
+                return
+            }
+            mCharacteristics?.let {
+                val captureBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                captureBuilder.addTarget(mJpegImageReader?.surface)
+                setup3AControlsLocked(captureBuilder)
+                val rotation = activity!!.windowManager.defaultDisplay.rotation
+                val facing = it.get(CameraCharacteristics.LENS_FACING)
+                val sensorRotation = it.get(CameraCharacteristics.SENSOR_ORIENTATION)
+                captureBuilder.set(CaptureRequest.JPEG_ORIENTATION,
+                        CameraUtils.getOrientation(facing, sensorRotation, rotation))
+                captureBuilder.setTag(mRequestCounter.getAndIncrement())
+                val request = captureBuilder.build()
+
+                val jpegBuilder = ImageSaver.ImageSaverBuilder(activity!!)
+                        .setCharacteristics(mCharacteristics)
+                mJpegResultQueue[request.tag as Int] = jpegBuilder
+                mCaptureSession?.capture(request, mCaptureCallback, mBackgroundHandler)
+            }
+        } catch (e: CameraAccessException) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun isLegacyLocked(): Boolean {
+        return mCharacteristics?.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
+                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
+    }
+
+    private var mCaptureTimer: Long = 0L
+    private fun startTimerLocked() {
+        mCaptureTimer = SystemClock.elapsedRealtime()
+    }
+
+    private fun hitTimeoutLocked(): Boolean {
+        return (SystemClock.elapsedRealtime() - mCaptureTimer) > PRE_CAPTURE_TIMEOUT_MS
+    }
+
 
 }

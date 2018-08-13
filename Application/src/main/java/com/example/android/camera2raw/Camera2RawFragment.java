@@ -1235,11 +1235,11 @@ public class Camera2RawFragment extends Fragment
             // of active requests.
             ImageSaver.ImageSaverBuilder jpegBuilder = new ImageSaver.ImageSaverBuilder(activity)
                     .setCharacteristics(mCharacteristics);
-            ImageSaver.ImageSaverBuilder rawBuilder = new ImageSaver.ImageSaverBuilder(activity)
-                    .setCharacteristics(mCharacteristics);
+          /*  ImageSaver.ImageSaverBuilder rawBuilder = new ImageSaver.ImageSaverBuilder(activity)
+                    .setCharacteristics(mCharacteristics);*/
 
             mJpegResultQueue.put((int) request.getTag(), jpegBuilder);
-            mRawResultQueue.put((int) request.getTag(), rawBuilder);
+           // mRawResultQueue.put((int) request.getTag(), rawBuilder);
 
             mCaptureSession.capture(request, mCaptureCallback, mBackgroundHandler);
 
