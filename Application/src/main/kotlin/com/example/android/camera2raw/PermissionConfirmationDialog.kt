@@ -11,7 +11,6 @@ import android.support.v4.app.DialogFragment
 class PermissionConfirmationDialog : DialogFragment() {
     companion object {
         fun newInstance() = PermissionConfirmationDialog()
-
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {

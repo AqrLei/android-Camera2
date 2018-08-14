@@ -236,7 +236,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                 val largestJpeg = Collections.max(
                         map.getOutputSizes(ImageFormat.JPEG).toList(),
                         CameraUtils.comparator)
-
                 val deviceRotation = activity!!.windowManager.defaultDisplay.rotation
                 val displaySize = Point()
                 activity!!.windowManager.defaultDisplay.getSize(displaySize)
@@ -283,7 +282,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                             viewHeight.toFloat() / previewSize.height,
                             viewWidth.toFloat() / previewSize.width)
                     matrix.postScale(scale, scale, centerX, centerY)
-
                 }
                 matrix.postRotate(rotation, centerX, centerY)
                 texture.setTransform(matrix)
@@ -292,9 +290,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                     if (mState != STATE_CLOSED) {
                         createCameraPreviewSessionLocked()
                     }
-
                 }
-
             }
         }
     }
