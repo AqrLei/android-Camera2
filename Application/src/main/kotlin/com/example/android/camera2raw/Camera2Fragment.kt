@@ -508,7 +508,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             }
 
         } catch (e: InterruptedException) {
-            // TODO throw RuntimeException
+           throw RuntimeException(e.message)
         } finally {
             mCameraOpenCloseLock.release()
         }
@@ -554,6 +554,9 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         when (v?.id) {
             R.id.picture -> {
                 takePicture()
+            }
+            R.id.info ->{
+
             }
         }
     }
