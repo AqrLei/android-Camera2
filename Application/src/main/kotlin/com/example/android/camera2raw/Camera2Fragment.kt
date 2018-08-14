@@ -1,6 +1,5 @@
 package com.example.android.camera2raw
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.*
@@ -13,7 +12,10 @@ import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.util.Size
 import android.view.*
+import android.widget.Toast
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
+import kotlinx.coroutines.experimental.android.UI
+import kotlinx.coroutines.experimental.launch
 import java.io.File
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -26,45 +28,40 @@ import java.util.concurrent.atomic.AtomicInteger
 class Camera2Fragment : Fragment(), View.OnClickListener {
     companion object {
         private const val PRE_CAPTURE_TIMEOUT_MS = 1000
-
         private const val MAX_PREVIEW_WIDTH = 1920
         private const val MAX_PREVIEW_HEIGHT = 1080
-
         private const val STATE_CLOSED = 0
         private const val STATE_OPENED = 1
         private const val STATE_PREVIEW = 2
         private const val STATE_WAITING_FOR_3A_CONVERGENCE = 3
-
-        private val CAMERA_PERMISSIONS = arrayOf(
-                Manifest.permission.CAMERA,
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-        )
-
         @JvmStatic
         fun newInstance() = Camera2Fragment()
     }
 
+    private val mCameraStateLock = Any()
+    private var mState: Int = STATE_CLOSED
+    private var mCaptureTimer: Long = 0L
+    private var mPendingUserCaptures = 0
+    private val mCameraOpenCloseLock = Semaphore(1)
+    private var mNoAFRun: Boolean = false
+    private val mRequestCounter = AtomicInteger()
+
+
     private var mBackgroundThread: HandlerThread? = null
     private var mBackgroundHandler: Handler? = null
 
-    private var mJpegImageReader: ImageReader? = null
-
-    private lateinit var mPreviewRequestBuilder: CaptureRequest.Builder
-    private var mCameraId: String = ""
-    private var mCaptureSession: CameraCaptureSession? = null
-    private var mOrientationListener: OrientationEventListener? = null
-    private val mCameraStateLock = Any()
-    private var mCharacteristics: CameraCharacteristics? = null
-    private var mPreviewSize: Size? = null
-    private var mState: Int = STATE_CLOSED
-    private var mPendingUserCaptures = 0
-
-    private val mCameraOpenCloseLock = Semaphore(1)
-    private var mNoAFRun: Boolean = false
-
-    private val mRequestCounter = AtomicInteger()
+    private var mJpegImageReader: RefCountedAutoCloseable<ImageReader>? = null
     private val mJpegResultQueue = TreeMap<Int, ImageSaver.ImageSaverBuilder>()
+
+    private var mCameraId: String = ""
+    private var mCameraDevice: CameraDevice? = null
+    private var mPreviewSize: Size? = null
+    private lateinit var mPreviewRequestBuilder: CaptureRequest.Builder
+    private var mCaptureSession: CameraCaptureSession? = null
+    private var mCharacteristics: CameraCharacteristics? = null
+
+    private var mOrientationListener: OrientationEventListener? = null
+
     private val mSurfaceTextureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
             configureTransform(width, height)
@@ -83,7 +80,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
         override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {}
     }
-    private var mCameraDevice: CameraDevice? = null
     private val mStateCallback = object : CameraDevice.StateCallback() {
         override fun onOpened(camera: CameraDevice?) {
             synchronized(mCameraStateLock) {
@@ -215,7 +211,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         return inflater.inflate(R.layout.fragment_camera2_basic, container, false)
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         picture.setOnClickListener(this)
@@ -314,7 +309,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                     mPreviewRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
                     mPreviewRequestBuilder.addTarget(surface)
                     mCameraDevice!!.createCaptureSession(
-                            arrayListOf(surface, mJpegImageReader?.surface),
+                            arrayListOf(surface, mJpegImageReader?.get()?.surface),
                             object : CameraCaptureSession.StateCallback() {
                                 override fun onConfigured(session: CameraCaptureSession) {
                                     synchronized(mCameraStateLock) {
@@ -341,16 +336,11 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
                                 override fun onConfigureFailed(session: CameraCaptureSession) {}
                             }, mBackgroundHandler)
-
                 }
-
-
             }
-
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         }
-
     }
 
     private fun setup3AControlsLocked(builder: CaptureRequest.Builder) {
@@ -433,7 +423,9 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     private fun setUpCameraOutputs(): Boolean {
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
         if (manager == null) {
-            //TODO Toast
+            launch(UI) {
+                Toast.makeText(activity, "This device doesn't support Camera2 API.", Toast.LENGTH_SHORT).show()
+            }
             return false
         }
         try {
@@ -445,11 +437,11 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                         map.getOutputSizes(ImageFormat.JPEG).toList(),
                         CameraUtils.comparator)
                 synchronized(mCameraStateLock) {
-                    if (mJpegImageReader == null) {
-                        mJpegImageReader = ImageReader.newInstance(largestJpeg.width,
-                                largestJpeg.height, ImageFormat.JPEG, 5)
+                    if (mJpegImageReader?.getAndRetain() == null) {
+                        mJpegImageReader = RefCountedAutoCloseable(ImageReader.newInstance(largestJpeg.width,
+                                largestJpeg.height, ImageFormat.JPEG, 5))
                     }
-                    mJpegImageReader?.setOnImageAvailableListener(
+                    mJpegImageReader?.get()?.setOnImageAvailableListener(
                             mOnJpegImageAvailableListener,
                             mBackgroundHandler)
                     mCharacteristics = characteristics
@@ -466,7 +458,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     private fun hasAllPermissionsGranted(): Boolean {
-        CAMERA_PERMISSIONS.forEach {
+        CameraUtils.CAMERA_PERMISSIONS.forEach {
             if (ActivityCompat.checkSelfPermission(context!!, it) != PackageManager.PERMISSION_GRANTED) {
                 return false
             }
@@ -476,16 +468,27 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     private fun requestCameraPermissions() {
-        //TODO RequestPermission
+        if (shouldShowRationale()) {
+            PermissionConfirmationDialog.newInstance().show(childFragmentManager, "dialog")
+        } else {
+            requestPermissions(CameraUtils.CAMERA_PERMISSIONS, CameraUtils.REQUEST_CAMERA_PERMISSIONS)
+        }
+    }
+
+    private fun shouldShowRationale(): Boolean {
+        for (permission in CameraUtils.CAMERA_PERMISSIONS) {
+            if (shouldShowRequestPermissionRationale(permission)) {
+                return true
+            }
+        }
+        return false
     }
 
     override fun onPause() {
-
         mOrientationListener?.disable()
         closeCamera()
         stopBackgroundThread()
         super.onPause()
-
     }
 
     private fun closeCamera() {
@@ -531,7 +534,24 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CameraUtils.REQUEST_CAMERA_PERMISSIONS) {
+            for (result in grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    showMissingPermissionError()
+                    return
+                }
+            }
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        }
+    }
+
+    private fun showMissingPermissionError() {
+        //TODO to app setting layout
+        activity?.let {
+            Toast.makeText(it, R.string.request_permission, Toast.LENGTH_SHORT).show()
+            it.finish()
+        }
     }
 
     override fun onClick(v: View?) {
@@ -567,7 +587,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
 
-
     private fun captureStillPictureLocked() {
         try {
             if (null == activity || null == mCameraDevice) {
@@ -575,8 +594,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             }
             mCharacteristics?.let {
                 val captureBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
-                /*将ImageReader的surface添加到这次的captureRequest中*/
-                captureBuilder.addTarget(mJpegImageReader?.surface)
+                /**将ImageReader的surface添加到这次的captureRequest中*/
+                captureBuilder.addTarget(mJpegImageReader?.get()?.surface)
                 setup3AControlsLocked(captureBuilder)
                 val rotation = activity!!.windowManager.defaultDisplay.rotation
                 val facing = it.get(CameraCharacteristics.LENS_FACING)
@@ -588,7 +607,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
                 val jpegBuilder = ImageSaver.ImageSaverBuilder(activity!!)
                 mJpegResultQueue[request.tag as Int] = jpegBuilder
-                /* 调用 Capture 时 会触发 ImageReader 的 OnImageAvailableListener*/
+                /**调用 Capture 时 会触发 ImageReader 的 OnImageAvailableListener*/
                 mCaptureSession?.capture(request, mCaptureCallback, mBackgroundHandler)
             }
         } catch (e: CameraAccessException) {
@@ -597,26 +616,26 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     private fun dequeueAndSaveImage(pendingQueue: TreeMap<Int, ImageSaver.ImageSaverBuilder>,
-                                    reader: ImageReader?) {
+                                    reader: RefCountedAutoCloseable<ImageReader>?) {
         synchronized(mCameraStateLock) {
             val entry = pendingQueue.firstEntry()
             val builder = entry.value
-            if (reader == null) {
+            if (reader?.getAndRetain() == null) {
                 pendingQueue.remove(entry.key)
                 return
             }
             val image: Image?
             try {
-                image = reader.acquireNextImage()
+                image = reader.get()?.acquireNextImage()
             } catch (e: IllegalStateException) {
                 pendingQueue.remove(entry.key)
                 return
             }
-            builder.setRefCountedReader(reader).setImage(image)
-            CameraUtils.handleCompletionLocked(entry.key, builder, pendingQueue)
-
+            image?.let {
+                builder.setRefCountedReader(reader).setImage(it)
+                CameraUtils.handleCompletionLocked(entry.key, builder, pendingQueue)
+            }
         }
-
     }
 
     private fun finishedCaptureLocked() {
@@ -640,7 +659,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
     }
 
-    private var mCaptureTimer: Long = 0L
     private fun startTimerLocked() {
         mCaptureTimer = SystemClock.elapsedRealtime()
     }
@@ -648,5 +666,4 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     private fun hitTimeoutLocked(): Boolean {
         return (SystemClock.elapsedRealtime() - mCaptureTimer) > PRE_CAPTURE_TIMEOUT_MS
     }
-
 }

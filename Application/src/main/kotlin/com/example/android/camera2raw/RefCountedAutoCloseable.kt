@@ -3,14 +3,10 @@ package com.example.android.camera2raw
 /**
  * @author  aqrLei on 2018/8/14
  */
-class RefCountedAutoCloseable<T : AutoCloseable> : AutoCloseable {
+class RefCountedAutoCloseable<T : AutoCloseable>(mObject: T) : AutoCloseable {
 
-    private var mObject: T? = null
+    private var mObject: T? = mObject
     private var mRefCount: Long = 0L
-
-    constructor(mObject: T) {
-        this.mObject = mObject
-    }
 
     @Synchronized
     fun getAndRetain(): T? {

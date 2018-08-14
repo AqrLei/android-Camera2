@@ -18,8 +18,7 @@ class ImageSaver private constructor(
         private val image: Image,
         private val file: File,
         private val context: Context,
-        private val reader: ImageReader) : Runnable {
-
+        private val reader: RefCountedAutoCloseable<ImageReader>) : Runnable {
     override fun run() {
         var success = false
         val format = image.format
@@ -39,12 +38,9 @@ class ImageSaver private constructor(
                 } finally {
                     image.close()
                     closeOutput(output)
-
                 }
             }
-            else -> {
-
-            }
+            else -> { }
         }
         reader.close()
         if (success) {
@@ -59,7 +55,6 @@ class ImageSaver private constructor(
                             Log.d("Camera", "-> uri=$uri")
                         }
                     })
-
         }
     }
 
@@ -76,7 +71,7 @@ class ImageSaver private constructor(
     class ImageSaverBuilder(private val mContext: Context) {
         private var mImage: Image? = null
         private var mFile: File? = null
-        private lateinit var mReader: ImageReader
+        private lateinit var mReader: RefCountedAutoCloseable<ImageReader>
 
         val saveLocation: String
             @Synchronized get() = if (mFile == null) "Unknown" else mFile!!.toString()
@@ -86,7 +81,7 @@ class ImageSaver private constructor(
 
         @Synchronized
         fun setRefCountedReader(
-                reader: ImageReader): ImageSaverBuilder {
+                reader: RefCountedAutoCloseable<ImageReader>): ImageSaverBuilder {
             mReader = reader
             return this
         }

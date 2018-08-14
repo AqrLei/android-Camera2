@@ -1,9 +1,7 @@
 package com.example.android.camera2raw
 
-import android.graphics.ImageFormat
-import android.graphics.SurfaceTexture
+import android.Manifest
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.AsyncTask
 import android.util.Size
 import android.util.SparseIntArray
@@ -19,21 +17,24 @@ import kotlin.math.sign
  * @description 针对竖屏
  */
 object CameraUtils {
-
-    private const val MIN_PREVIEW_PIXELS = 480 * 320
     private const val ASPECT_RATIO_TOLERANCE = 0.005
-    private const val MAX_ASPECT_DISTORTION = 0.1
-
     val orientations = SparseIntArray().apply {
         append(Surface.ROTATION_0, 0)
         append(Surface.ROTATION_90, 90)
         append(Surface.ROTATION_180, 180)
         append(Surface.ROTATION_270, 270)
     }
+    val CAMERA_PERMISSIONS = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    )
+    const val REQUEST_CAMERA_PERMISSIONS = 1
 
     val comparator = Comparator<Size> { s1, s2 ->
         (s1.width * s1.height - s2.width * s2.height).sign
     }
+
     fun contains(modes: IntArray?, mode: Int): Boolean {
         if (modes == null) return false
         for (i in modes) {
@@ -54,7 +55,7 @@ object CameraUtils {
     }
 
     fun generateTimestamp(): String {
-        val sdf = SimpleDateFormat("yyyyMMddHH_mmssSSS", Locale.US)
+        val sdf = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.CHINA)
         return sdf.format(Date())
     }
 
