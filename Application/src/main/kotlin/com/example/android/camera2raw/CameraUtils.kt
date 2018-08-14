@@ -14,7 +14,6 @@ import kotlin.math.sign
 
 /**
  * @author  aqrLei on 2018/8/10
- * @description 针对竖屏
  */
 object CameraUtils {
     private const val ASPECT_RATIO_TOLERANCE = 0.005
