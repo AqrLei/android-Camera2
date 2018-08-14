@@ -11,7 +11,6 @@ import android.media.ImageReader
 import android.os.*
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
-import android.util.Log
 import android.util.Size
 import android.view.*
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
@@ -119,7 +118,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
     private val mOnJpegImageAvailableListener = ImageReader.OnImageAvailableListener {
-        Log.d("test", "image available")
         dequeueAndSaveImage(mJpegResultQueue, mJpegImageReader)
     }
     private val mPreCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
@@ -127,37 +125,34 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             synchronized(mCameraStateLock) {
                 when (mState) {
                     STATE_WAITING_FOR_3A_CONVERGENCE -> {
-                        var readyToCapture: Boolean
+                        var readyToCapture = true
                         if (!mNoAFRun) {
                             val afState = result.get(CaptureResult.CONTROL_AF_STATE) ?: return
 
                             readyToCapture = (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                                     afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED)
-                            if (!isLegacyLocked()) {
-                                val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
-                                val awbState = result.get(CaptureResult.CONTROL_AWB_MODE)
-                                if (aeState == null || awbState == null) {
-                                    return
-                                }
-                                readyToCapture = readyToCapture &&
-                                        aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED &&
-                                        awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED
+                        }
+                        if (!isLegacyLocked()) {
+                            val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+                            val awbState = result.get(CaptureResult.CONTROL_AWB_MODE)
+                            if (aeState == null || awbState == null) {
+                                return
                             }
-                            if (!readyToCapture && hitTimeoutLocked()) {
-                                readyToCapture = true
-                            }
-
-                            if (readyToCapture && mPendingUserCaptures > 0) {
-                                while (mPendingUserCaptures > 0) {
-                                    captureStillPictureLocked()
-                                    mPendingUserCaptures--
-                                }
-                            }
-                            mState = STATE_PREVIEW
-
-
+                            readyToCapture = readyToCapture &&
+                                    aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED &&
+                                    awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED
+                        }
+                        if (!readyToCapture && hitTimeoutLocked()) {
+                            readyToCapture = true
                         }
 
+                        if (readyToCapture && mPendingUserCaptures > 0) {
+                            while (mPendingUserCaptures > 0) {
+                                captureStillPictureLocked()
+                                mPendingUserCaptures--
+                            }
+                            mState = STATE_PREVIEW
+                        }
                     }
                     else -> {
                         // do nothing
@@ -347,7 +342,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                                 override fun onConfigureFailed(session: CameraCaptureSession) {}
                             }, mBackgroundHandler)
 
-                    Log.d("test", "session add surface")
                 }
 
 
@@ -370,9 +364,18 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             } else {
                 builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
             }
-            //TODO set "continuous picture"
-            //TODO set auto-magical flash control mode
-            //TODO set auto-magical white balance control model
+        }
+        if (CameraUtils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
+                        CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)) {
+            builder.set(CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
+        } else {
+            builder.set(CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON)
+        }
+        if (CameraUtils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
+                        CaptureRequest.CONTROL_AWB_MODE_AUTO)) {
+            builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
         }
     }
 
@@ -430,7 +433,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     private fun setUpCameraOutputs(): Boolean {
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
         if (manager == null) {
-            Log.d("camera", "this device doesn't support Camera2 API")
+            //TODO Toast
             return false
         }
         try {
@@ -572,8 +575,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             }
             mCharacteristics?.let {
                 val captureBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                /*将ImageReader的surface添加到这次的captureRequest中*/
                 captureBuilder.addTarget(mJpegImageReader?.surface)
-                Log.d("test", "capture add target surface")
                 setup3AControlsLocked(captureBuilder)
                 val rotation = activity!!.windowManager.defaultDisplay.rotation
                 val facing = it.get(CameraCharacteristics.LENS_FACING)
@@ -585,9 +588,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
                 val jpegBuilder = ImageSaver.ImageSaverBuilder(activity!!)
                 mJpegResultQueue[request.tag as Int] = jpegBuilder
+                /* 调用 Capture 时 会触发 ImageReader 的 OnImageAvailableListener*/
                 mCaptureSession?.capture(request, mCaptureCallback, mBackgroundHandler)
-
-                Log.d("test", "session capture ")
             }
         } catch (e: CameraAccessException) {
             e.printStackTrace()
