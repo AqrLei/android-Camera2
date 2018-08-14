@@ -368,8 +368,12 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     override fun onResume() {
         super.onResume()
         startBackgroundThread()
-        openCamera()
+        open(false)
 
+    }
+
+    fun open(isSwitch: Boolean) {
+        openCamera(isSwitch)
         if (texture.isAvailable) {
             configureTransform(texture.width, texture.height)
         } else {
@@ -392,8 +396,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     @SuppressWarnings("MissingPermission")
-    private fun openCamera() {
-        if (!setUpCameraOutputs()) {
+    private fun openCamera(isSwitch: Boolean) {
+        if (!setUpCameraOutputs(isSwitch)) {
             return
         }
         if (!hasAllPermissionsGranted()) {
@@ -403,7 +407,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500L, TimeUnit.MILLISECONDS)) {
-                //TODO RuntimeException("Time out waiting to lock camera opening")
+                throw RuntimeException("Time out waiting to lock camera opening")
             }
             synchronized(mCameraStateLock) {
                 manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler)
@@ -411,12 +415,12 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         } catch (e: InterruptedException) {
-            //todo throw RuntimeException
+            throw RuntimeException(e.message)
         }
 
     }
 
-    private fun setUpCameraOutputs(): Boolean {
+    private fun setUpCameraOutputs(isSwitch: Boolean): Boolean {
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
         if (manager == null) {
             launch(UI) {
@@ -426,7 +430,16 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
         try {
             if (manager.cameraIdList.isNotEmpty()) {
-                val cameraId = manager.cameraIdList[0]
+                val cameraId = if (isSwitch) {
+                    if (mCameraId == manager.cameraIdList[1]) {
+                        manager.cameraIdList[0]
+                    } else {
+                        manager.cameraIdList[1]
+                    }
+                } else {
+                    manager.cameraIdList[1]
+                }
+
                 val characteristics = manager.getCameraCharacteristics(cameraId)
                 val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 val largestJpeg = Collections.max(
@@ -481,10 +494,14 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     override fun onPause() {
-        mOrientationListener?.disable()
-        closeCamera()
+        close()
         stopBackgroundThread()
         super.onPause()
+    }
+
+    private fun close() {
+        mOrientationListener?.disable()
+        closeCamera()
     }
 
     private fun closeCamera() {
@@ -508,7 +525,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             }
 
         } catch (e: InterruptedException) {
-           throw RuntimeException(e.message)
+            throw RuntimeException(e.message)
         } finally {
             mCameraOpenCloseLock.release()
         }
@@ -555,8 +572,9 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             R.id.picture -> {
                 takePicture()
             }
-            R.id.info ->{
-
+            R.id.info -> {
+                close()
+                open(true)
             }
         }
     }
