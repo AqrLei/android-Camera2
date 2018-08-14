@@ -46,6 +46,13 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         fun newInstance() = Camera2Fragment()
     }
 
+    private var mBackgroundThread: HandlerThread? = null
+    private var mBackgroundHandler: Handler? = null
+
+    private var mJpegImageReader: ImageReader? = null
+
+    private lateinit var mPreviewRequestBuilder: CaptureRequest.Builder
+    private var mCameraId: String = ""
     private var mCaptureSession: CameraCaptureSession? = null
     private var mOrientationListener: OrientationEventListener? = null
     private val mCameraStateLock = Any()
@@ -57,6 +64,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     private val mCameraOpenCloseLock = Semaphore(1)
     private var mNoAFRun: Boolean = false
 
+    private val mRequestCounter = AtomicInteger()
+    private val mJpegResultQueue = TreeMap<Int, ImageSaver.ImageSaverBuilder>()
     private val mSurfaceTextureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
             configureTransform(width, height)
@@ -183,11 +192,10 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
             val requestId = request.tag as Int
             val sb = StringBuilder()
-            var jpegBuilder: ImageSaver.ImageSaverBuilder? = null
+            var jpegBuilder: ImageSaver.ImageSaverBuilder?
             synchronized(mCameraStateLock) {
                 jpegBuilder = mJpegResultQueue[requestId]
                 jpegBuilder?.let {
-                    it.setResult(result)
                     sb.append("Saving JPEG as: ")
                     sb.append(it.saveLocation)
                 }
@@ -207,37 +215,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
     }
 
-    private var mBackgroundThread: HandlerThread? = null
-    private var mBackgroundHandler: Handler? = null
-
-    private var mJpegImageReader: ImageReader? = null
-
-
-    private lateinit var mPreviewRequestBuilder: CaptureRequest.Builder
-    private var mCameraId: String = ""
-
-    private fun dequeueAndSaveImage(pendingQueue: TreeMap<Int, ImageSaver.ImageSaverBuilder>,
-                                    reader: ImageReader?) {
-        synchronized(mCameraStateLock) {
-            val entry = pendingQueue.firstEntry()
-            val builder = entry.value
-            if (reader == null) {
-                pendingQueue.remove(entry.key)
-                return
-            }
-            val image: Image?
-            try {
-                image = reader.acquireNextImage()
-            } catch (e: IllegalStateException) {
-                pendingQueue.remove(entry.key)
-                return
-            }
-            builder.setImage(image)
-            CameraUtils.handleCompletionLocked(entry.key, builder, pendingQueue)
-
-        }
-
-    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_camera2_basic, container, false)
@@ -288,8 +265,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                     maxPreviewHeight = displaySize.x
                     maxPreviewWidth = displaySize.y
                 }
-                maxPreviewHeight = Math.max(maxPreviewHeight, MAX_PREVIEW_HEIGHT)
-                maxPreviewWidth = Math.max(maxPreviewWidth, MAX_PREVIEW_WIDTH)
+                maxPreviewHeight = Math.min(maxPreviewHeight, MAX_PREVIEW_HEIGHT)
+                maxPreviewWidth = Math.min(maxPreviewWidth, MAX_PREVIEW_WIDTH)
                 val previewSize = CameraUtils.chooseOptimalSize(
                         map.getOutputSizes(SurfaceTexture::class.java),
                         rotatedViewWidth, rotatedViewHeight, maxPreviewWidth, maxPreviewHeight, largestJpeg)
@@ -387,6 +364,12 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         val minFocusDist = mCharacteristics?.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
         mNoAFRun = (minFocusDist == null || minFocusDist == 0F)
         if (!mNoAFRun) {
+            if (CameraUtils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES),
+                            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
+                builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+            } else {
+                builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
+            }
             //TODO set "continuous picture"
             //TODO set auto-magical flash control mode
             //TODO set auto-magical white balance control model
@@ -525,7 +508,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         } catch (e: InterruptedException) {
             // TODO throw RuntimeException
         } finally {
-
             mCameraOpenCloseLock.release()
         }
     }
@@ -582,8 +564,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
 
-    private val mRequestCounter = AtomicInteger()
-    private val mJpegResultQueue = TreeMap<Int, ImageSaver.ImageSaverBuilder>()
+
     private fun captureStillPictureLocked() {
         try {
             if (null == activity || null == mCameraDevice) {
@@ -603,7 +584,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                 val request = captureBuilder.build()
 
                 val jpegBuilder = ImageSaver.ImageSaverBuilder(activity!!)
-                        .setCharacteristics(mCharacteristics)
                 mJpegResultQueue[request.tag as Int] = jpegBuilder
                 mCaptureSession?.capture(request, mCaptureCallback, mBackgroundHandler)
 
@@ -612,6 +592,29 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         }
+    }
+
+    private fun dequeueAndSaveImage(pendingQueue: TreeMap<Int, ImageSaver.ImageSaverBuilder>,
+                                    reader: ImageReader?) {
+        synchronized(mCameraStateLock) {
+            val entry = pendingQueue.firstEntry()
+            val builder = entry.value
+            if (reader == null) {
+                pendingQueue.remove(entry.key)
+                return
+            }
+            val image: Image?
+            try {
+                image = reader.acquireNextImage()
+            } catch (e: IllegalStateException) {
+                pendingQueue.remove(entry.key)
+                return
+            }
+            builder.setRefCountedReader(reader).setImage(image)
+            CameraUtils.handleCompletionLocked(entry.key, builder, pendingQueue)
+
+        }
+
     }
 
     private fun finishedCaptureLocked() {
@@ -643,6 +646,5 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     private fun hitTimeoutLocked(): Boolean {
         return (SystemClock.elapsedRealtime() - mCaptureTimer) > PRE_CAPTURE_TIMEOUT_MS
     }
-
 
 }

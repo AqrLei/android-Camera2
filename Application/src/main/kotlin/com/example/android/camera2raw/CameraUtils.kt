@@ -34,61 +34,13 @@ object CameraUtils {
     val comparator = Comparator<Size> { s1, s2 ->
         (s1.width * s1.height - s2.width * s2.height).sign
     }
-
-    fun getSuitablePreviewSize(configMap: StreamConfigurationMap, viewHeight: Int, viewWidth: Int): Size {
-        val sizes = configMap.getOutputSizes(SurfaceTexture::class.java)
-
-        val viewAspectRatio = viewHeight.toDouble() / viewWidth.toDouble()
-        val collectorSizes = ArrayList<Size>()
-        run out@{
-            sizes.forEach { size ->
-                var currentWidth = size.width
-                var currentHeight = size.height
-                if (currentHeight == viewHeight && currentWidth == viewWidth) {
-                    collectorSizes.add(size)
-                    return@out
-                }
-                if (currentHeight * currentWidth < MIN_PREVIEW_PIXELS) {
-                    return@forEach
-                }
-                if (currentWidth < currentHeight) {
-                    currentWidth += currentHeight
-                    currentHeight = currentWidth - currentHeight
-                    currentWidth -= currentHeight
-                }
-                val currentAspectRatio = currentWidth / currentHeight
-                val distortion = Math.abs(currentAspectRatio - viewAspectRatio)
-                if (distortion < MAX_ASPECT_DISTORTION) {
-                    collectorSizes.add(size)
-                }
-            }
+    fun contains(modes: IntArray?, mode: Int): Boolean {
+        if (modes == null) return false
+        for (i in modes) {
+            if (i == mode) return true
         }
-
-        return if (collectorSizes.size > 0) {
-            Collections.max(collectorSizes, comparator)
-        } else {
-            sizes[0]
-        }
+        return false
     }
-
-    fun getSuitablePictureSize(configMap: StreamConfigurationMap, screenWidth: Int, screenHeight: Int): Size {
-        val screenAspectRatio = screenHeight.toDouble() / screenWidth.toDouble()
-        val collectorSizes = ArrayList<Size>()
-        val sizes = configMap.getOutputSizes(ImageFormat.JPEG)
-        sizes.forEach {
-            val currentWidth = maxOf(it.width, it.height)
-            val currentHeight = minOf(it.width, it.height)
-            val currentAspectRatio = currentWidth / currentHeight
-            val distortion = Math.abs(currentAspectRatio - screenAspectRatio)
-            if (distortion < MAX_ASPECT_DISTORTION) {
-                collectorSizes.add(it)
-            }
-        }
-        return if (collectorSizes.size > 0) {
-            Collections.max(collectorSizes, comparator)
-        } else sizes[0]
-    }
-
 
     fun handleCompletionLocked(requestId: Int, builder: ImageSaver.ImageSaverBuilder?,
                                queue: TreeMap<Int, ImageSaver.ImageSaverBuilder>) {
@@ -145,6 +97,6 @@ object CameraUtils {
         if (cameraFacing == CameraCharacteristics.LENS_FACING_FRONT) {
             tempOrientation = -tempOrientation
         }
-        return (sensorOrientation + tempOrientation + 360) % 360
+        return (sensorOrientation - tempOrientation + 360) % 360
     }
 }

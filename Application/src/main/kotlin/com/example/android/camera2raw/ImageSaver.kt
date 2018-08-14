@@ -2,8 +2,6 @@ package com.example.android.camera2raw
 
 import android.content.Context
 import android.graphics.ImageFormat
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CaptureResult
 import android.media.Image
 import android.media.ImageReader
 import android.media.MediaScannerConnection
@@ -18,8 +16,8 @@ import java.io.IOException
  */
 class ImageSaver private constructor(
         private val image: Image,
-        private val file: File, reuslt: CaptureResult,
-        characteristics: CameraCharacteristics, private val context: Context,
+        private val file: File,
+        private val context: Context,
         private val reader: ImageReader) : Runnable {
 
     override fun run() {
@@ -78,16 +76,13 @@ class ImageSaver private constructor(
     class ImageSaverBuilder(private val mContext: Context) {
         private var mImage: Image? = null
         private var mFile: File? = null
-        private var mCaptureResult: CaptureResult? = null
-        private var mCharacteristics: CameraCharacteristics? = null
         private lateinit var mReader: ImageReader
 
         val saveLocation: String
             @Synchronized get() = if (mFile == null) "Unknown" else mFile!!.toString()
 
         private val isComplete: Boolean
-            get() = (mImage != null && mFile != null && mCaptureResult != null
-                    && mCharacteristics != null)
+            get() = (mImage != null && mFile != null)
 
         @Synchronized
         fun setRefCountedReader(
@@ -109,24 +104,10 @@ class ImageSaver private constructor(
         }
 
         @Synchronized
-        fun setResult(result: CaptureResult): ImageSaverBuilder {
-            mCaptureResult = result
-            return this
-        }
-
-        @Synchronized
-        fun setCharacteristics(
-                characteristics: CameraCharacteristics?): ImageSaverBuilder {
-            if (characteristics == null) throw NullPointerException()
-            mCharacteristics = characteristics
-            return this
-        }
-
-        @Synchronized
         fun buildIfComplete(): ImageSaver? {
             return if (!isComplete) {
                 null
-            } else ImageSaver(mImage!!, mFile!!, mCaptureResult!!, mCharacteristics!!, mContext,
+            } else ImageSaver(mImage!!, mFile!!, mContext,
                     mReader)
         }
     }

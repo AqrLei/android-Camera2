@@ -799,6 +799,9 @@ public class Camera2RawFragment extends Fragment
         }
     }
 
+
+
+    /**permission**/
     /**
      * Requests permissions necessary to use camera and save pictures.
      */
@@ -849,6 +852,9 @@ public class Camera2RawFragment extends Fragment
             activity.finish();
         }
     }
+
+
+
 
     /**
      * Closes the current {@link CameraDevice}.
@@ -1316,6 +1322,8 @@ public class Camera2RawFragment extends Fragment
         }
     }
 
+
+
     /**
      * Runnable that saves an {@link Image} into the specified {@link File}, and updates
      * {@link android.provider.MediaStore} to include the resulting file.
@@ -1508,54 +1516,6 @@ public class Camera2RawFragment extends Fragment
     // *********************************************************************************************
 
     /**
-     * Comparator based on area of the given {@link Size} objects.
-     */
-    static class CompareSizesByArea implements Comparator<Size> {
-
-        @Override
-        public int compare(Size lhs, Size rhs) {
-            // We cast here to ensure the multiplications won't overflow
-            return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
-                    (long) rhs.getWidth() * rhs.getHeight());
-        }
-
-    }
-
-    /**
-     * A dialog fragment for displaying non-recoverable errors; this {@ling Activity} will be
-     * finished once the dialog has been acknowledged by the user.
-     */
-    public static class ErrorDialog extends DialogFragment {
-
-        private String mErrorMessage;
-
-        public ErrorDialog() {
-            mErrorMessage = "Unknown error occurred!";
-        }
-
-        // Build a dialog with a custom message (Fragments require default constructor).
-        public static ErrorDialog buildErrorDialog(String errorMessage) {
-            ErrorDialog dialog = new ErrorDialog();
-            dialog.mErrorMessage = errorMessage;
-            return dialog;
-        }
-
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            final Activity activity = getActivity();
-            return new AlertDialog.Builder(activity)
-                    .setMessage(mErrorMessage)
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            activity.finish();
-                        }
-                    })
-                    .create();
-        }
-    }
-
-    /**
      * A wrapper for an {@link AutoCloseable} object that implements reference counting to allow
      * for resource management.
      */
@@ -1614,6 +1574,20 @@ public class Camera2RawFragment extends Fragment
                 }
             }
         }
+    }
+
+    /**
+     * Comparator based on area of the given {@link Size} objects.
+     */
+    static class CompareSizesByArea implements Comparator<Size> {
+
+        @Override
+        public int compare(Size lhs, Size rhs) {
+            // We cast here to ensure the multiplications won't overflow
+            return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
+                    (long) rhs.getWidth() * rhs.getHeight());
+        }
+
     }
 
     /**
@@ -1846,4 +1820,37 @@ public class Camera2RawFragment extends Fragment
 
     }
 
+    /**
+     * A dialog fragment for displaying non-recoverable errors; this {@ling Activity} will be
+     * finished once the dialog has been acknowledged by the user.
+     */
+    public static class ErrorDialog extends DialogFragment {
+
+        private String mErrorMessage;
+
+        public ErrorDialog() {
+            mErrorMessage = "Unknown error occurred!";
+        }
+
+        // Build a dialog with a custom message (Fragments require default constructor).
+        public static ErrorDialog buildErrorDialog(String errorMessage) {
+            ErrorDialog dialog = new ErrorDialog();
+            dialog.mErrorMessage = errorMessage;
+            return dialog;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            final Activity activity = getActivity();
+            return new AlertDialog.Builder(activity)
+                    .setMessage(mErrorMessage)
+                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            activity.finish();
+                        }
+                    })
+                    .create();
+        }
+    }
 }
