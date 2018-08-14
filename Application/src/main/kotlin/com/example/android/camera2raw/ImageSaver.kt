@@ -1,22 +1,78 @@
 package com.example.android.camera2raw
 
 import android.content.Context
+import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureResult
 import android.media.Image
 import android.media.ImageReader
+import android.media.MediaScannerConnection
+import android.net.Uri
+import android.util.Log
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 /**
  * @author  aqrLei on 2018/8/13
  */
 class ImageSaver private constructor(
-        image: Image, file: File, reuslt: CaptureResult,
-        characteristics: CameraCharacteristics, context: Context,
-        reader: ImageReader) : Runnable {
+        private val image: Image,
+        private val file: File, reuslt: CaptureResult,
+        characteristics: CameraCharacteristics, private val context: Context,
+        private val reader: ImageReader) : Runnable {
 
     override fun run() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        var success = false
+        val format = image.format
+        when (format) {
+            ImageFormat.JPEG -> {
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                var output: FileOutputStream? = null
+                try {
+                    output = FileOutputStream(file)
+                    output.write(bytes)
+                    success = true
+
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                } finally {
+                    image.close()
+                    closeOutput(output)
+
+                }
+            }
+            else -> {
+
+            }
+        }
+        reader.close()
+        if (success) {
+            MediaScannerConnection.scanFile(context, arrayOf(file.path), null,
+                    object : MediaScannerConnection.MediaScannerConnectionClient {
+                        override fun onMediaScannerConnected() {
+                            // Do nothing
+                        }
+
+                        override fun onScanCompleted(path: String?, uri: Uri?) {
+                            Log.d("Camera", "Scanned $path :")
+                            Log.d("Camera", "-> uri=$uri")
+                        }
+                    })
+
+        }
+    }
+
+    private fun closeOutput(output: FileOutputStream?) {
+        output?.let {
+            try {
+                it.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
     }
 
     class ImageSaverBuilder(private val mContext: Context) {

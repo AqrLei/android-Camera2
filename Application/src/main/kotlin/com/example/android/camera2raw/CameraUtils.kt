@@ -4,9 +4,11 @@ import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.params.StreamConfigurationMap
+import android.os.AsyncTask
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.Surface
+import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator
 import kotlin.collections.ArrayList
@@ -87,6 +89,22 @@ object CameraUtils {
         } else sizes[0]
     }
 
+
+    fun handleCompletionLocked(requestId: Int, builder: ImageSaver.ImageSaverBuilder?,
+                               queue: TreeMap<Int, ImageSaver.ImageSaverBuilder>) {
+        builder?.let {
+            val saver = it.buildIfComplete()
+            if (saver != null) {
+                queue.remove(requestId)
+                AsyncTask.THREAD_POOL_EXECUTOR.execute(saver)
+            }
+        }
+    }
+
+    fun generateTimestamp(): String {
+        val sdf = SimpleDateFormat("yyyyMMddHH_mmssSSS", Locale.US)
+        return sdf.format(Date())
+    }
 
     fun checkAspectsEqual(a: Size, b: Size): Boolean {
         val aAspect = a.width / a.height.toDouble()

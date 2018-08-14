@@ -6,17 +6,16 @@ import android.content.pm.PackageManager
 import android.graphics.*
 import android.hardware.SensorManager
 import android.hardware.camera2.*
+import android.media.Image
 import android.media.ImageReader
-import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.SystemClock
+import android.os.*
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.util.Log
 import android.util.Size
 import android.view.*
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
+import java.io.File
 import java.util.*
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -111,7 +110,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
     private val mOnJpegImageAvailableListener = ImageReader.OnImageAvailableListener {
-        //TODO dequeueAndSaveImage
+        Log.d("test", "image available")
+        dequeueAndSaveImage(mJpegResultQueue, mJpegImageReader)
     }
     private val mPreCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
         private fun process(result: CaptureResult) {
@@ -167,6 +167,43 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
     private val mCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureStarted(session: CameraCaptureSession, request: CaptureRequest, timestamp: Long, frameNumber: Long) {
+            val currentDateTime = CameraUtils.generateTimestamp()
+            val jpegFile = File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
+                    "JPEG_$currentDateTime.jpg")
+            val requestId = request.tag as Int
+            var jpegBuilder: ImageSaver.ImageSaverBuilder? = null
+            synchronized(mCameraStateLock) {
+                jpegBuilder = mJpegResultQueue[requestId]
+            }
+            jpegBuilder?.setFile(jpegFile)
+        }
+
+        override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+            val requestId = request.tag as Int
+            val sb = StringBuilder()
+            var jpegBuilder: ImageSaver.ImageSaverBuilder? = null
+            synchronized(mCameraStateLock) {
+                jpegBuilder = mJpegResultQueue[requestId]
+                jpegBuilder?.let {
+                    it.setResult(result)
+                    sb.append("Saving JPEG as: ")
+                    sb.append(it.saveLocation)
+                }
+                CameraUtils.handleCompletionLocked(requestId, jpegBuilder, mJpegResultQueue)
+                finishedCaptureLocked()
+
+            }
+        }
+
+        override fun onCaptureFailed(session: CameraCaptureSession?, request: CaptureRequest, failure: CaptureFailure?) {
+            val requestId = request.tag as Int
+            synchronized(mCameraStateLock) {
+                mJpegResultQueue.remove(requestId)
+                finishedCaptureLocked()
+            }
+        }
 
     }
 
@@ -178,6 +215,29 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
     private lateinit var mPreviewRequestBuilder: CaptureRequest.Builder
     private var mCameraId: String = ""
+
+    private fun dequeueAndSaveImage(pendingQueue: TreeMap<Int, ImageSaver.ImageSaverBuilder>,
+                                    reader: ImageReader?) {
+        synchronized(mCameraStateLock) {
+            val entry = pendingQueue.firstEntry()
+            val builder = entry.value
+            if (reader == null) {
+                pendingQueue.remove(entry.key)
+                return
+            }
+            val image: Image?
+            try {
+                image = reader.acquireNextImage()
+            } catch (e: IllegalStateException) {
+                pendingQueue.remove(entry.key)
+                return
+            }
+            builder.setImage(image)
+            CameraUtils.handleCompletionLocked(entry.key, builder, pendingQueue)
+
+        }
+
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_camera2_basic, container, false)
@@ -309,6 +369,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
                                 override fun onConfigureFailed(session: CameraCaptureSession) {}
                             }, mBackgroundHandler)
+
+                    Log.d("test", "session add surface")
                 }
 
 
@@ -369,7 +431,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500L, TimeUnit.MILLISECONDS)) {
-                // RuntimeException("Time out waiting to lock camera opening")
+                //TODO RuntimeException("Time out waiting to lock camera opening")
             }
             synchronized(mCameraStateLock) {
                 manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler)
@@ -530,6 +592,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             mCharacteristics?.let {
                 val captureBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
                 captureBuilder.addTarget(mJpegImageReader?.surface)
+                Log.d("test", "capture add target surface")
                 setup3AControlsLocked(captureBuilder)
                 val rotation = activity!!.windowManager.defaultDisplay.rotation
                 val facing = it.get(CameraCharacteristics.LENS_FACING)
@@ -543,7 +606,25 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                         .setCharacteristics(mCharacteristics)
                 mJpegResultQueue[request.tag as Int] = jpegBuilder
                 mCaptureSession?.capture(request, mCaptureCallback, mBackgroundHandler)
+
+                Log.d("test", "session capture ")
             }
+        } catch (e: CameraAccessException) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun finishedCaptureLocked() {
+        try {
+            if (!mNoAFRun) {
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                        CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)
+                mCaptureSession?.capture(mPreviewRequestBuilder.build(), mPreCaptureCallback,
+                        mBackgroundHandler)
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                        CameraMetadata.CONTROL_AF_TRIGGER_IDLE)
+            }
+
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         }
