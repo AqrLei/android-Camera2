@@ -373,15 +373,22 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     }
 
     fun open(isSwitch: Boolean) {
-        openCamera(isSwitch)
-        if (texture.isAvailable) {
-            configureTransform(texture.width, texture.height)
-        } else {
-            texture.surfaceTextureListener = mSurfaceTextureListener
-        }
-        mOrientationListener?.let {
-            if (it.canDetectOrientation()) {
-                it.enable()
+        /**
+         *
+         * CaptureSession的释放需要一定时间，此处需要加一个线程锁，在之前的CameraDevice相关的东西释放后，才能
+         * 切换摄像头，重新打开
+         * */
+        synchronized(mCameraStateLock) {
+            openCamera(isSwitch)
+            if (texture.isAvailable) {
+                configureTransform(texture.width, texture.height)
+            } else {
+                texture.surfaceTextureListener = mSurfaceTextureListener
+            }
+            mOrientationListener?.let {
+                if (it.canDetectOrientation()) {
+                    it.enable()
+                }
             }
         }
     }
@@ -507,6 +514,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     private fun closeCamera() {
         try {
             mCameraOpenCloseLock.acquire()
+
             synchronized(mCameraStateLock) {
                 mPendingUserCaptures = 0
                 mState = STATE_CLOSED
@@ -573,8 +581,10 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                 takePicture()
             }
             R.id.info -> {
-                close()
-                open(true)
+                mCameraDevice?.let {
+                    close()
+                    open(true)
+                }
             }
         }
     }
