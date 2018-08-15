@@ -374,7 +374,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
     fun open(isSwitch: Boolean) {
         /**
-         *
          * CaptureSession的释放需要一定时间，此处需要加一个线程锁，在之前的CameraDevice相关的东西释放后，才能
          * 切换摄像头，重新打开
          * */
