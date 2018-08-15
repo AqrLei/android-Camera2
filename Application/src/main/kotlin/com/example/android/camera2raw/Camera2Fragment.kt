@@ -80,6 +80,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
         override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {}
     }
+
     private val mStateCallback = object : CameraDevice.StateCallback() {
         override fun onOpened(camera: CameraDevice?) {
             synchronized(mCameraStateLock) {
