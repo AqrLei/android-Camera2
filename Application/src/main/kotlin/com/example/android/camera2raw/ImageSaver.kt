@@ -6,7 +6,6 @@ import android.media.Image
 import android.media.ImageReader
 import android.media.MediaScannerConnection
 import android.net.Uri
-import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -18,7 +17,8 @@ class ImageSaver private constructor(
         private val image: Image,
         private val file: File,
         private val context: Context,
-        private val reader: RefCountedAutoCloseable<ImageReader>) : Runnable {
+        private val reader: RefCountedAutoCloseable<ImageReader>,
+        private val callback: Callback? = null) : Runnable {
     override fun run() {
         var success = false
         val format = image.format
@@ -40,7 +40,8 @@ class ImageSaver private constructor(
                     closeOutput(output)
                 }
             }
-            else -> { }
+            else -> {
+            }
         }
         reader.close()
         if (success) {
@@ -51,8 +52,7 @@ class ImageSaver private constructor(
                         }
 
                         override fun onScanCompleted(path: String?, uri: Uri?) {
-                            Log.d("Camera", "Scanned $path :")
-                            Log.d("Camera", "-> uri=$uri")
+                            callback?.onSaveCompleted(path)
                         }
                     })
         }
@@ -71,6 +71,7 @@ class ImageSaver private constructor(
     class ImageSaverBuilder(private val mContext: Context) {
         private var mImage: Image? = null
         private var mFile: File? = null
+        private var mCallback: Callback? = null
         private lateinit var mReader: RefCountedAutoCloseable<ImageReader>
 
         val saveLocation: String
@@ -102,8 +103,19 @@ class ImageSaver private constructor(
         fun buildIfComplete(): ImageSaver? {
             return if (!isComplete) {
                 null
-            } else ImageSaver(mImage!!, mFile!!, mContext,
-                    mReader)
+            } else {
+                ImageSaver(mImage!!, mFile!!, mContext, mReader, mCallback)
+            }
         }
+
+        @Synchronized
+        fun setCallback(callback: Callback?) {
+            mCallback = callback
+
+        }
+    }
+
+    interface Callback {
+        fun onSaveCompleted(path: String?)
     }
 }

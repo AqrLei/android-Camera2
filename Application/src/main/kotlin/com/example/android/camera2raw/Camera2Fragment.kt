@@ -3,6 +3,7 @@ package com.example.android.camera2raw
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.support.v4.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,7 +14,7 @@ import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 /**
  * @author  aqrLei on 2018/8/13
  */
-class Camera2Fragment : Fragment(), View.OnClickListener {
+class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
     companion object {
         fun newInstance() = Camera2Fragment()
     }
@@ -32,7 +33,10 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         facing.setOnClickListener(this)
         flash.setOnClickListener(this)
         mCameraPermission = CameraPermission(this)
-        activity?.let { mCamera2 = Camera2(texture, it) }
+        activity?.let {
+            mCamera2 = Camera2(texture, it)
+            mCamera2?.setCallback(this)
+        }
 
 
     }
@@ -46,10 +50,15 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
 
+    override fun onSaveCompleted(path: String?) {
+        Log.d("test", path)
+    }
+
     override fun onPause() {
         mCamera2?.stop()
         super.onPause()
     }
+
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (requestCode == CameraPermission.REQUEST_CAMERA_PERMISSIONS) {
@@ -72,7 +81,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             R.id.facing -> {
                 mCamera2?.switchFacing()
             }
-            R.id.flash->{
+            R.id.flash -> {
                 flashModeCount++
                 val mode = Camera2.CameraFlashMode.values()[flashModeCount % 3]
                 mCamera2?.switchFlash(mode)

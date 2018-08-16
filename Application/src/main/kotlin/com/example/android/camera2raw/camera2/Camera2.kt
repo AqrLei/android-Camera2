@@ -44,6 +44,8 @@ class Camera2(private val textureView: AutoFitTextureView,
         private const val STATE_WAITING_FOR_AF = 4
     }
 
+    private var mCallback: ImageSaver.Callback? = null
+
     private val mCameraStateLock = Any()
     private val mCameraOpenCloseLock = Semaphore(1)
     private val mRequestCounter = AtomicInteger(0)
@@ -478,6 +480,10 @@ class Camera2(private val textureView: AutoFitTextureView,
         }
     }
 
+    fun setCallback(callback: ImageSaver.Callback) {
+        mCallback = callback
+    }
+
     fun switchFacing() {
         mCameraFacing = when (mCameraFacing) {
             CameraFacing.CAMERA_FACING_BACK -> {
@@ -624,6 +630,7 @@ class Camera2(private val textureView: AutoFitTextureView,
                 val request = captureBuilder.build()
 
                 val jpegBuilder = ImageSaver.ImageSaverBuilder(activity)
+                jpegBuilder.setCallback(mCallback)
                 mJpegResultQueue[request.tag as Int] = jpegBuilder
                 /**调用 Capture 时 会触发 ImageReader 的 OnImageAvailableListener*/
                 mCaptureSession?.capture(request, mCaptureCallback, mBackgroundHandler)
