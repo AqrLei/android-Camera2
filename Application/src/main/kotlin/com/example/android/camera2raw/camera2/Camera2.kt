@@ -52,6 +52,9 @@ class Camera2(private val textureView: AutoFitTextureView,
     private var mBackgroundThread: HandlerThread? = null
     private var mBackgroundHandler: Handler? = null
 
+    var cameraFlashMode = CameraFlashMode.FLASH_OFF
+        private set
+
     private var mCameraFacing = CameraFacing.CAMERA_FACING_BACK
     private var mCameraDevice: CameraDevice? = null
     private val mStateCallback = object : CameraDevice.StateCallback() {
@@ -134,7 +137,7 @@ class Camera2(private val textureView: AutoFitTextureView,
     }
 
     private var mPreviewSize: Size? = null
-    private lateinit var mPreviewRequestBuilder: CaptureRequest.Builder
+    private var mCaptureRequestBuilder: CaptureRequest.Builder? = null
     private val mSurfaceTextureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
             configureTransform(width, height)
@@ -378,8 +381,8 @@ class Camera2(private val textureView: AutoFitTextureView,
                 surfaceTexture.setDefaultBufferSize(it.width, it.height)
                 val surface = Surface(surfaceTexture)
                 if (mCameraDevice != null) {
-                    mPreviewRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                    mPreviewRequestBuilder.addTarget(surface)
+                    mCaptureRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+                    mCaptureRequestBuilder?.addTarget(surface)
                     mCameraDevice!!.createCaptureSession(
                             arrayListOf(surface, mJpegImageReader?.get()?.surface),
                             object : CameraCaptureSession.StateCallback() {
@@ -390,9 +393,9 @@ class Camera2(private val textureView: AutoFitTextureView,
                                         }
                                         try {
 
-                                            setup3AControlsLocked(mPreviewRequestBuilder)
+                                            setup3AControlsLocked(mCaptureRequestBuilder!!)
                                             session.setRepeatingRequest(
-                                                    mPreviewRequestBuilder.build(),
+                                                    mCaptureRequestBuilder?.build(),
                                                     mPreCaptureCallback, mBackgroundHandler)
                                             mState = STATE_PREVIEW
                                         } catch (e: CameraAccessException) {
@@ -417,6 +420,7 @@ class Camera2(private val textureView: AutoFitTextureView,
 
     private fun setup3AControlsLocked(builder: CaptureRequest.Builder) {
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+
         val minFocusDist = mCharacteristics?.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
         mNoAFRun = (minFocusDist == null || minFocusDist == 0F)
         if (!mNoAFRun) {
@@ -427,17 +431,38 @@ class Camera2(private val textureView: AutoFitTextureView,
                 builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
             }
         }
-        if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
-                        CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)) {
-            builder.set(CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
-        } else {
-            builder.set(CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON)
-        }
+
+        configureFlash(builder)
+
+        /*auto-white-balance*/
         if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
                         CaptureRequest.CONTROL_AWB_MODE_AUTO)) {
             builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        }
+    }
+
+    private fun configureFlash(builder: CaptureRequest.Builder) {
+        val flashMode = when (cameraFlashMode) {
+            CameraFlashMode.FLASH_AUTO -> {
+                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
+            }
+            CameraFlashMode.FLASH_OFF -> {
+                CaptureRequest.FLASH_MODE_OFF
+
+            }
+            CameraFlashMode.FLASH_ON -> {
+                CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH
+            }
+        }
+        if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
+                        flashMode)) {
+            if (flashMode == CaptureRequest.FLASH_MODE_OFF) {
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            }
+            builder.set(CaptureRequest.CONTROL_AE_MODE, flashMode)
+        } else {
+            builder.set(CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON)
         }
     }
 
@@ -454,6 +479,30 @@ class Camera2(private val textureView: AutoFitTextureView,
         openCamera()
     }
 
+
+    fun switchFlash(flashMode: CameraFlashMode) {
+        if (flashMode == cameraFlashMode) {
+            return
+        }
+        val save = cameraFlashMode
+        cameraFlashMode = flashMode
+        if (mCaptureRequestBuilder != null) {
+            configureFlash(mCaptureRequestBuilder!!)
+            if (mCaptureSession != null) {
+                try {
+                    mCaptureSession?.setRepeatingRequest(
+                            mCaptureRequestBuilder?.build(),
+                            mPreCaptureCallback,
+                            mBackgroundHandler)
+                } catch (e: CameraAccessException) {
+                    cameraFlashMode = save
+                }
+            }
+        }
+
+    }
+
+
     fun takePicture() {
         synchronized(mCameraStateLock) {
             mPendingUserCaptures++
@@ -462,16 +511,16 @@ class Camera2(private val textureView: AutoFitTextureView,
             }
             try {
                 if (!mNoAFRun) {
-                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                    mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AF_TRIGGER,
                             CameraMetadata.CONTROL_AF_TRIGGER_START)
                 }
                 if (!Camera2Utils.isLegacyLocked(mCharacteristics)) {
-                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
+                    mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
                             CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START)
                 }
                 mState = STATE_WAITING_FOR_3A_CONVERGENCE
                 Camera2Utils.startTimeLocked()
-                mCaptureSession?.capture(mPreviewRequestBuilder.build(), mPreCaptureCallback, mBackgroundHandler)
+                mCaptureSession?.capture(mCaptureRequestBuilder?.build(), mPreCaptureCallback, mBackgroundHandler)
 
             } catch (e: CameraAccessException) {
                 e.printStackTrace()
@@ -533,11 +582,11 @@ class Camera2(private val textureView: AutoFitTextureView,
     private fun finishedCaptureLocked() {
         try {
             if (!mNoAFRun) {
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AF_TRIGGER,
                         CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)
-                mCaptureSession?.capture(mPreviewRequestBuilder.build(), mPreCaptureCallback,
+                mCaptureSession?.capture(mCaptureRequestBuilder?.build(), mPreCaptureCallback,
                         mBackgroundHandler)
-                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AF_TRIGGER,
                         CameraMetadata.CONTROL_AF_TRIGGER_IDLE)
             }
 
@@ -595,5 +644,9 @@ class Camera2(private val textureView: AutoFitTextureView,
 
     enum class CameraFacing(val facing: String) {
         CAMERA_FACING_BACK("0"), CAMERA_FACING_FRONT("1")
+    }
+
+    enum class CameraFlashMode {
+        FLASH_OFF, FLASH_ON, FLASH_AUTO
     }
 }
