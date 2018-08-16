@@ -7,12 +7,15 @@ import android.hardware.SensorManager
 import android.hardware.camera2.*
 import android.media.Image
 import android.media.ImageReader
-import android.os.*
-import android.support.v4.app.ActivityCompat
+import android.os.Bundle
+import android.os.Environment
+import android.os.Handler
+import android.os.HandlerThread
 import android.support.v4.app.Fragment
 import android.util.Size
 import android.view.*
 import android.widget.Toast
+import com.example.android.camera2raw.permission.CameraPermission
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.launch
@@ -27,7 +30,6 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class Camera2Fragment : Fragment(), View.OnClickListener {
     companion object {
-        private const val PRE_CAPTURE_TIMEOUT_MS = 1000
         private const val MAX_PREVIEW_WIDTH = 1920
         private const val MAX_PREVIEW_HEIGHT = 1080
         private const val STATE_CLOSED = 0
@@ -38,9 +40,9 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         fun newInstance() = Camera2Fragment()
     }
 
+    private lateinit var cameraPermission: CameraPermission
     private val mCameraStateLock = Any()
     private var mState: Int = STATE_CLOSED
-    private var mCaptureTimer: Long = 0L
     private var mPendingUserCaptures = 0
     private val mCameraOpenCloseLock = Semaphore(1)
     private var mNoAFRun: Boolean = false
@@ -129,7 +131,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                             readyToCapture = (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                                     afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED)
                         }
-                        if (!isLegacyLocked()) {
+                        if (!CameraUtils.isLegacyLocked(mCharacteristics)) {
                             val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
                             val awbState = result.get(CaptureResult.CONTROL_AWB_MODE)
                             if (aeState == null || awbState == null) {
@@ -139,7 +141,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                                     aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED &&
                                     awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED
                         }
-                        if (!readyToCapture && hitTimeoutLocked()) {
+                        if (!readyToCapture && CameraUtils.hitTimeoutLocked()) {
                             readyToCapture = true
                         }
 
@@ -216,12 +218,52 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         super.onViewCreated(view, savedInstanceState)
         picture.setOnClickListener(this)
         info.setOnClickListener(this)
+        cameraPermission = CameraPermission(this)
         mOrientationListener = object : OrientationEventListener(activity, SensorManager.SENSOR_DELAY_NORMAL) {
             override fun onOrientationChanged(orientation: Int) {
                 texture?.let {
                     if (it.isAvailable) {
                         configureTransform(texture.width, texture.height)
                     }
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startBackgroundThread()
+        open(false)
+    }
+
+    override fun onPause() {
+        close()
+        stopBackgroundThread()
+        super.onPause()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == CameraPermission.REQUEST_CAMERA_PERMISSIONS) {
+            for (result in grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    cameraPermission.showMissingPermissionError()
+                    return
+                }
+            }
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        }
+    }
+
+    override fun onClick(v: View?) {
+        when (v?.id) {
+            R.id.picture -> {
+                takePicture()
+            }
+            R.id.info -> {
+                mCameraDevice?.let {
+                    close()
+                    open(true)
                 }
             }
         }
@@ -366,13 +408,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        startBackgroundThread()
-        open(false)
-
-    }
-
     fun open(isSwitch: Boolean) {
         /**
          * CaptureSession的释放需要一定时间，此处需要加一个线程锁，在之前的CameraDevice相关的东西释放后，才能
@@ -407,8 +442,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         if (!setUpCameraOutputs(isSwitch)) {
             return
         }
-        if (!hasAllPermissionsGranted()) {
-            requestCameraPermissions()
+        if (!cameraPermission.hasAllPermissionsGranted()) {
+            cameraPermission.requestPermissions()
             return
         }
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -426,6 +461,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
 
     }
+
 
     private fun setUpCameraOutputs(isSwitch: Boolean): Boolean {
         val manager = activity?.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
@@ -471,39 +507,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         }
         return false
 
-    }
-
-    private fun hasAllPermissionsGranted(): Boolean {
-        CameraUtils.CAMERA_PERMISSIONS.forEach {
-            if (ActivityCompat.checkSelfPermission(context!!, it) != PackageManager.PERMISSION_GRANTED) {
-                return false
-            }
-        }
-        return true
-
-    }
-
-    private fun requestCameraPermissions() {
-        if (shouldShowRationale()) {
-            PermissionConfirmationDialog.newInstance().show(childFragmentManager, "dialog")
-        } else {
-            requestPermissions(CameraUtils.CAMERA_PERMISSIONS, CameraUtils.REQUEST_CAMERA_PERMISSIONS)
-        }
-    }
-
-    private fun shouldShowRationale(): Boolean {
-        for (permission in CameraUtils.CAMERA_PERMISSIONS) {
-            if (shouldShowRequestPermissionRationale(permission)) {
-                return true
-            }
-        }
-        return false
-    }
-
-    override fun onPause() {
-        close()
-        stopBackgroundThread()
-        super.onPause()
     }
 
     private fun close() {
@@ -554,41 +557,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        if (requestCode == CameraUtils.REQUEST_CAMERA_PERMISSIONS) {
-            for (result in grantResults) {
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    showMissingPermissionError()
-                    return
-                }
-            }
-        } else {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        }
-    }
-
-    private fun showMissingPermissionError() {
-        //TODO to app setting layout
-        activity?.let {
-            Toast.makeText(it, R.string.request_permission, Toast.LENGTH_SHORT).show()
-            it.finish()
-        }
-    }
-
-    override fun onClick(v: View?) {
-        when (v?.id) {
-            R.id.picture -> {
-                takePicture()
-            }
-            R.id.info -> {
-                mCameraDevice?.let {
-                    close()
-                    open(true)
-                }
-            }
-        }
-    }
-
     private fun takePicture() {
         synchronized(mCameraStateLock) {
             mPendingUserCaptures++
@@ -600,12 +568,12 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
                     mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
                             CameraMetadata.CONTROL_AF_TRIGGER_START)
                 }
-                if (!isLegacyLocked()) {
+                if (!CameraUtils.isLegacyLocked(mCharacteristics)) {
                     mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
                             CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START)
                 }
                 mState = STATE_WAITING_FOR_3A_CONVERGENCE
-                startTimerLocked()
+                CameraUtils.startTimeLocked()
                 mCaptureSession?.capture(mPreviewRequestBuilder.build(), mPreCaptureCallback, mBackgroundHandler)
 
             } catch (e: CameraAccessException) {
@@ -679,18 +647,5 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         }
-    }
-
-    private fun isLegacyLocked(): Boolean {
-        return mCharacteristics?.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
-    }
-
-    private fun startTimerLocked() {
-        mCaptureTimer = SystemClock.elapsedRealtime()
-    }
-
-    private fun hitTimeoutLocked(): Boolean {
-        return (SystemClock.elapsedRealtime() - mCaptureTimer) > PRE_CAPTURE_TIMEOUT_MS
     }
 }

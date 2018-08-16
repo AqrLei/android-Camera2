@@ -3,6 +3,7 @@ package com.example.android.camera2raw
 import android.Manifest
 import android.hardware.camera2.CameraCharacteristics
 import android.os.AsyncTask
+import android.os.SystemClock
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.Surface
@@ -17,6 +18,7 @@ import kotlin.math.sign
  */
 object CameraUtils {
     private const val ASPECT_RATIO_TOLERANCE = 0.005
+    private const val PRE_CAPTURE_TIMEOUT_MS = 1000
     val orientations = SparseIntArray().apply {
         append(Surface.ROTATION_0, 0)
         append(Surface.ROTATION_90, 90)
@@ -33,6 +35,8 @@ object CameraUtils {
     val comparator = Comparator<Size> { s1, s2 ->
         (s1.width * s1.height - s2.width * s2.height).sign
     }
+
+    private var captureTimer: Long = 0
 
     fun contains(modes: IntArray?, mode: Int): Boolean {
         if (modes == null) return false
@@ -99,4 +103,18 @@ object CameraUtils {
         }
         return (sensorOrientation - tempOrientation + 360) % 360
     }
+
+    fun startTimeLocked() {
+        captureTimer = SystemClock.elapsedRealtime()
+    }
+
+    fun hitTimeoutLocked(): Boolean {
+        return (SystemClock.elapsedRealtime() - captureTimer) > PRE_CAPTURE_TIMEOUT_MS
+    }
+
+    fun isLegacyLocked(characteristics: CameraCharacteristics?): Boolean {
+        return characteristics?.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
+                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
+    }
+
 }
