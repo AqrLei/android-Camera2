@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.widget.Toast
-import com.example.android.camera2raw.PermissionConfirmationDialog
 import com.example.android.camera2raw.R
 
 /**

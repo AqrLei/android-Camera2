@@ -1,10 +1,11 @@
-package com.example.android.camera2raw
+package com.example.android.camera2raw.permission
 
 import android.app.AlertDialog
 import android.app.Dialog
 import android.os.Bundle
 import android.support.v4.app.DialogFragment
 import android.support.v4.app.FragmentManager
+import com.example.android.camera2raw.R
 
 
 /**

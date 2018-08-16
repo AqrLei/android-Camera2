@@ -1,12 +1,12 @@
-package com.example.android.camera2raw
+package com.example.android.camera2raw.camera2
 
-import android.Manifest
 import android.hardware.camera2.CameraCharacteristics
 import android.os.AsyncTask
 import android.os.SystemClock
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.Surface
+import com.example.android.camera2raw.ImageSaver
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator
@@ -16,7 +16,7 @@ import kotlin.math.sign
 /**
  * @author  aqrLei on 2018/8/10
  */
-object CameraUtils {
+object Camera2Utils {
     private const val ASPECT_RATIO_TOLERANCE = 0.005
     private const val PRE_CAPTURE_TIMEOUT_MS = 1000
     val orientations = SparseIntArray().apply {
@@ -25,12 +25,6 @@ object CameraUtils {
         append(Surface.ROTATION_180, 180)
         append(Surface.ROTATION_270, 270)
     }
-    val CAMERA_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-    )
-    const val REQUEST_CAMERA_PERMISSIONS = 1
 
     val comparator = Comparator<Size> { s1, s2 ->
         (s1.width * s1.height - s2.width * s2.height).sign
