@@ -33,6 +33,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
         flash.setOnClickListener(this)
         mCameraPermission = CameraPermission(this)
         activity?.let { mCamera2 = Camera2(texture, it) }
+
+
     }
 
     override fun onResume() {

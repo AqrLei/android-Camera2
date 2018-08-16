@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.*
 import android.hardware.SensorManager
 import android.hardware.camera2.*
+import android.hardware.camera2.params.MeteringRectangle
 import android.media.Image
 import android.media.ImageReader
 import android.os.Environment
@@ -40,6 +41,7 @@ class Camera2(private val textureView: AutoFitTextureView,
         private const val STATE_OPENED = 1
         private const val STATE_PREVIEW = 2
         private const val STATE_WAITING_FOR_3A_CONVERGENCE = 3
+        private const val STATE_WAITING_FOR_AF = 4
     }
 
     private val mCameraStateLock = Any()
@@ -52,8 +54,7 @@ class Camera2(private val textureView: AutoFitTextureView,
     private var mBackgroundThread: HandlerThread? = null
     private var mBackgroundHandler: Handler? = null
 
-    var cameraFlashMode = CameraFlashMode.FLASH_OFF
-        private set
+    private var cameraFlashMode = CameraFlashMode.FLASH_OFF
 
     private var mCameraFacing = CameraFacing.CAMERA_FACING_BACK
     private var mCameraDevice: CameraDevice? = null
@@ -190,6 +191,9 @@ class Camera2(private val textureView: AutoFitTextureView,
                             mState = STATE_PREVIEW
                         }
                     }
+                    STATE_WAITING_FOR_AF -> {
+                        recoverAF(result)
+                    }
                     else -> {
                         // do nothing
                     }
@@ -219,9 +223,14 @@ class Camera2(private val textureView: AutoFitTextureView,
     }
 
 
+    @SuppressLint("ClickableViewAccessibility")
     fun start() {
         startBackgroundThread()
         openCamera()
+        textureView.setOnTouchListener { _, event ->
+            autoFocus(event!!.x.toInt(), event.y.toInt())
+            true
+        }
         mOrientationListener = object : OrientationEventListener(activity, SensorManager.SENSOR_DELAY_NORMAL) {
             override fun onOrientationChanged(orientation: Int) {
                 textureView.let {
@@ -419,9 +428,11 @@ class Camera2(private val textureView: AutoFitTextureView,
     }
 
     private fun setup3AControlsLocked(builder: CaptureRequest.Builder) {
+        /**overall of 3A mode*/
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
 
         val minFocusDist = mCharacteristics?.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
+        /**If the lens is fixed-focus, this will be true*/
         mNoAFRun = (minFocusDist == null || minFocusDist == 0F)
         if (!mNoAFRun) {
             if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES),
@@ -432,7 +443,8 @@ class Camera2(private val textureView: AutoFitTextureView,
             }
         }
 
-        configureFlash(builder)
+
+        configureAE(builder)
 
         /*auto-white-balance*/
         if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
@@ -441,7 +453,7 @@ class Camera2(private val textureView: AutoFitTextureView,
         }
     }
 
-    private fun configureFlash(builder: CaptureRequest.Builder) {
+    private fun configureAE(builder: CaptureRequest.Builder) {
         val flashMode = when (cameraFlashMode) {
             CameraFlashMode.FLASH_AUTO -> {
                 CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
@@ -479,29 +491,71 @@ class Camera2(private val textureView: AutoFitTextureView,
         openCamera()
     }
 
-
     fun switchFlash(flashMode: CameraFlashMode) {
         if (flashMode == cameraFlashMode) {
             return
         }
         val save = cameraFlashMode
         cameraFlashMode = flashMode
-        if (mCaptureRequestBuilder != null) {
-            configureFlash(mCaptureRequestBuilder!!)
-            if (mCaptureSession != null) {
-                try {
-                    mCaptureSession?.setRepeatingRequest(
-                            mCaptureRequestBuilder?.build(),
-                            mPreCaptureCallback,
-                            mBackgroundHandler)
-                } catch (e: CameraAccessException) {
-                    cameraFlashMode = save
+        synchronized(mCameraStateLock) {
+            if (mCaptureRequestBuilder != null) {
+                configureAE(mCaptureRequestBuilder!!)
+                if (mCaptureSession != null) {
+                    try {
+                        mCaptureSession?.setRepeatingRequest(
+                                mCaptureRequestBuilder?.build(),
+                                mPreCaptureCallback,
+                                mBackgroundHandler)
+                    } catch (e: CameraAccessException) {
+                        cameraFlashMode = save
+                    }
                 }
             }
         }
 
     }
 
+    private fun autoFocus(rawX: Int, rawY: Int) {
+        synchronized(mCameraStateLock) {
+            if (mCaptureRequestBuilder != null) {
+                val region = MeteringRectangle(rawX, rawY, 100, 100, 1000)
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AF_REGIONS,
+                        arrayOf(region))
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(region))
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_AUTO)
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START)
+                mCaptureRequestBuilder?.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START)
+                if (mCaptureSession != null) {
+                    try {
+                        mCaptureSession?.setRepeatingRequest(mCaptureRequestBuilder?.build(),
+                                mPreCaptureCallback,
+                                mBackgroundHandler)
+                        mState = STATE_WAITING_FOR_AF
+                    } catch (e: CameraAccessException) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun recoverAF(result: CaptureResult) {
+        val afState = result.get(CaptureResult.CONTROL_AF_STATE)
+        if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
+                CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
+            mCaptureRequestBuilder?.let {
+                it.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)
+                setup3AControlsLocked(it)
+                try {
+                    mCaptureSession?.setRepeatingRequest(mCaptureRequestBuilder?.build(), mPreCaptureCallback, mBackgroundHandler)
+                } catch (e: CameraAccessException) {
+                    e.printStackTrace()
+                } finally {
+                    mState = STATE_PREVIEW
+                }
+            }
+        }
+    }
 
     fun takePicture() {
         synchronized(mCameraStateLock) {
