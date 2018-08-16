@@ -20,6 +20,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
 
     private lateinit var mCameraPermission: CameraPermission
     private var mCamera2: Camera2? = null
+    private var flashModeCount: Int = 0
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_camera2_basic, container, false)
@@ -28,7 +29,8 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         picture.setOnClickListener(this)
-        info.setOnClickListener(this)
+        facing.setOnClickListener(this)
+        flash.setOnClickListener(this)
         mCameraPermission = CameraPermission(this)
         activity?.let { mCamera2 = Camera2(texture, it) }
     }
@@ -65,8 +67,13 @@ class Camera2Fragment : Fragment(), View.OnClickListener {
             R.id.picture -> {
                 mCamera2?.takePicture()
             }
-            R.id.info -> {
+            R.id.facing -> {
                 mCamera2?.switchFacing()
+            }
+            R.id.flash->{
+                flashModeCount++
+                val mode = Camera2.CameraFlashMode.values()[flashModeCount % 3]
+                mCamera2?.switchFlash(mode)
             }
         }
     }

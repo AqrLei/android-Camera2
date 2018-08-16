@@ -37,21 +37,28 @@
         android:orientation="horizontal">
 
         <Button
+            android:id="@+id/flash"
+            style="@android:style/Widget.Material.Light.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:text="Flash" />
+
+        <Button
             android:id="@+id/picture"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="@string/picture" />
 
-        <ImageButton
-            android:id="@+id/info"
+        <Button
+            android:id="@+id/facing"
             style="@android:style/Widget.Material.Light.Button.Borderless"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal|bottom"
-            android:contentDescription="@string/description_info"
             android:padding="20dp"
-            android:src="@drawable/ic_action_info" />
+            android:text="Facing" />
 
 
     </FrameLayout>
