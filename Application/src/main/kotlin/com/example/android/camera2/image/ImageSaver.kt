@@ -1,6 +1,7 @@
 package com.example.android.camera2.image
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.media.Image
 import android.media.ImageReader
@@ -28,6 +29,7 @@ class ImageSaver private constructor(
                 val buffer = image.planes[0].buffer
                 val bytes = ByteArray(buffer.remaining())
                 buffer.get(bytes)
+                callback?.onGetByteArray(bytes)
                 var output: FileOutputStream? = null
                 try {
                     output = FileOutputStream(file)
@@ -117,6 +119,7 @@ class ImageSaver private constructor(
     }
 
     interface Callback {
+        fun onGetByteArray(byteArray:ByteArray)
         fun onSaveCompleted(path: String?)
     }
 }

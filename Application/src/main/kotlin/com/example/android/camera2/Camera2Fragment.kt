@@ -1,14 +1,15 @@
 package com.example.android.camera2
 
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.support.v4.app.Fragment
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.example.android.camera2.image.ImageSaver
 import com.example.android.camera2.camera.Camera2
+import com.example.android.camera2.image.ImageSaver
 import com.example.android.camera2.permission.CameraPermission
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 
@@ -50,8 +51,14 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         }
     }
 
+    override fun onGetByteArray(byteArray: ByteArray) {
+
+    }
     override fun onSaveCompleted(path: String?) {
-        Log.d("test", path)
+        val options = BitmapFactory.Options()
+        options.inJustDecodeBounds = true
+       BitmapFactory.decodeFile(path,options)
+        Log.d("test", "width->${options.outWidth}, height->${options.outHeight}, outMimeType->${options.outMimeType}")
     }
 
     override fun onPause() {
