@@ -46,14 +46,13 @@ android {
         androidTest.java.srcDirs = ['tests/src']
 
     }
-    dependencies {
-        implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:0.24.0"
-        implementation "com.android.support:support-v4:$support_version"
-        implementation "com.android.support:support-v13:$support_version"
-        implementation "com.android.support:cardview-v7:$support_version"
-        implementation "com.android.support:appcompat-v7:$support_version"
-        implementation "com.android.support:design:$support_version"
-        implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    }
-
+}
+dependencies {
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:0.24.0"
+    implementation "com.android.support:support-v4:$support_version"
+    implementation "com.android.support:support-v13:$support_version"
+    implementation "com.android.support:cardview-v7:$support_version"
+    implementation "com.android.support:appcompat-v7:$support_version"
+    implementation "com.android.support:design:$support_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
