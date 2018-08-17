@@ -1,4 +1,4 @@
-package com.example.android.camera2raw.Image
+package com.example.android.camera2raw.image
 
 import android.content.Context
 import android.graphics.ImageFormat

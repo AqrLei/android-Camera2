@@ -7,7 +7,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.example.android.camera2raw.Image.ImageSaver
+import com.example.android.camera2raw.image.ImageSaver
 import com.example.android.camera2raw.camera2.Camera2
 import com.example.android.camera2raw.permission.CameraPermission
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
