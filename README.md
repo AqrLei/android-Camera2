@@ -2,10 +2,10 @@
 Android Camera2Raw Sample
 ===================================
 
-This sample demonstrates using the Camera2 API to capture a JPEG and RAW sensor frame.
+This sample demonstrates using the Camera2 API to capture a JPEG sensor frame.
 Check the source code to see a typical example of how to display the camera preview;
-run auto-focus, auto-exposure metering, and auto-white-balance; capture a JPEG and
-RAW image for the same sensor frame; and save these into MediaStore for use in other
+run auto-focus, auto-exposure metering, and auto-white-balance; capture a JPEG 
+image for the same sensor frame; and save these into MediaStore for use in other
 applications.
 
 Introduction
@@ -17,8 +17,8 @@ colorspace typically used for displaying and storing images viewed by humans.  T
 [DngCreator][2] class is provided as part of the Camera2 API as a utility for saving
 RAW images as DNG files.
 
-This sample displays a live camera preview in a TextureView, and saves JPEG and DNG
-file for each image captured.
+This sample displays a live camera preview in a TextureView, and saves JPEG 
+for each image captured.
 
 [1]: https://developer.android.com/reference/android/hardware/camera2/package-summary.html
 [2]: https://developer.android.com/reference/android/hardware/camera2/DngCreator.html
