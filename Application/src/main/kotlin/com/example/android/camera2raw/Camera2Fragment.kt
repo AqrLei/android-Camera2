@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import com.example.android.camera2raw.Image.ImageSaver
 import com.example.android.camera2raw.camera2.Camera2
 import com.example.android.camera2raw.permission.CameraPermission
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
@@ -37,8 +38,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
             mCamera2 = Camera2(texture, it)
             mCamera2?.setCallback(this)
         }
-
-
     }
 
     override fun onResume() {

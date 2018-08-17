@@ -18,7 +18,7 @@ import android.view.Surface
 import android.view.TextureView
 import android.widget.Toast
 import com.example.android.camera2raw.AutoFitTextureView
-import com.example.android.camera2raw.ImageSaver
+import com.example.android.camera2raw.Image.ImageSaver
 import com.example.android.camera2raw.RefCountedAutoCloseable
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.launch

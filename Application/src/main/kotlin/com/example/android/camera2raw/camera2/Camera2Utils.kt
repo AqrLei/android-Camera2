@@ -6,7 +6,7 @@ import android.os.SystemClock
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.Surface
-import com.example.android.camera2raw.ImageSaver
+import com.example.android.camera2raw.Image.ImageSaver
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator

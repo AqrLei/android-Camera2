@@ -6,6 +6,7 @@ package com.example.android.camera2raw
 class RefCountedAutoCloseable<T : AutoCloseable>(mObject: T) : AutoCloseable {
 
     private var mObject: T? = mObject
+    /**引用计数*/
     private var mRefCount: Long = 0L
 
     @Synchronized
@@ -23,6 +24,7 @@ class RefCountedAutoCloseable<T : AutoCloseable>(mObject: T) : AutoCloseable {
     }
 
     override fun close() {
+        /**每次引用结束都要调用close,如此才会在最终close时释放掉[mObject]*/
         if (mRefCount >= 0) {
             mRefCount--
             if (mRefCount < 0) {

@@ -1,7 +1,5 @@
 package com.example.android.camera2raw.permission
 
-import android.support.v4.app.DialogFragment
-
 /**
  * @author  aqrLei on 2018/8/16
  */
