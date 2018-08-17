@@ -1,4 +1,4 @@
-package com.example.android.camera2raw.camera2
+package com.example.android.camera2.camera
 
 import android.hardware.camera2.CameraCharacteristics
 import android.os.AsyncTask
@@ -6,7 +6,7 @@ import android.os.SystemClock
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.Surface
-import com.example.android.camera2raw.image.ImageSaver
+import com.example.android.camera2.image.ImageSaver
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator

@@ -1,4 +1,4 @@
-package com.example.android.camera2raw.image
+package com.example.android.camera2.image
 
 import android.content.Context
 import android.graphics.ImageFormat
@@ -6,7 +6,7 @@ import android.media.Image
 import android.media.ImageReader
 import android.media.MediaScannerConnection
 import android.net.Uri
-import com.example.android.camera2raw.RefCountedAutoCloseable
+import com.example.android.camera2.RefCountedAutoCloseable
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

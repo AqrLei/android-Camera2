@@ -1,4 +1,4 @@
-package com.example.android.camera2raw.permission
+package com.example.android.camera2.permission
 
 /**
  * @author  aqrLei on 2018/8/16

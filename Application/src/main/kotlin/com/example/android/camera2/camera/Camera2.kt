@@ -1,4 +1,4 @@
-package com.example.android.camera2raw.camera2
+package com.example.android.camera2.camera
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -17,9 +17,9 @@ import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.TextureView
 import android.widget.Toast
-import com.example.android.camera2raw.AutoFitTextureView
-import com.example.android.camera2raw.image.ImageSaver
-import com.example.android.camera2raw.RefCountedAutoCloseable
+import com.example.android.camera2.AutoFitTextureView
+import com.example.android.camera2.image.ImageSaver
+import com.example.android.camera2.RefCountedAutoCloseable
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.launch
 import java.io.File

@@ -13,14 +13,14 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-package com.example.android.camera2raw.tests;
+package com.example.android.camera2.tests;
 
-import com.example.android.camera2raw.*;
+import com.example.android.camera2.*;
 
 import android.test.ActivityInstrumentationTestCase2;
 
 /**
-* Tests for Camera2Raw sample.
+* Tests for Camera2 sample.
 */
 public class SampleTests extends ActivityInstrumentationTestCase2<CameraActivity> {
 

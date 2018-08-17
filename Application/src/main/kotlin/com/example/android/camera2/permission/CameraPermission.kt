@@ -1,11 +1,11 @@
-package com.example.android.camera2raw.permission
+package com.example.android.camera2.permission
 
 import android.Manifest
 import android.content.pm.PackageManager
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.widget.Toast
-import com.example.android.camera2raw.R
+import com.example.android.camera2.R
 
 /**
  * @author  aqrLei on 2018/8/16

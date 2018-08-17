@@ -1,4 +1,4 @@
-package com.example.android.camera2raw
+package com.example.android.camera2
 
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -7,9 +7,9 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.example.android.camera2raw.image.ImageSaver
-import com.example.android.camera2raw.camera2.Camera2
-import com.example.android.camera2raw.permission.CameraPermission
+import com.example.android.camera2.image.ImageSaver
+import com.example.android.camera2.camera.Camera2
+import com.example.android.camera2.permission.CameraPermission
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 
 /**
@@ -33,6 +33,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         picture.setOnClickListener(this)
         facing.setOnClickListener(this)
         flash.setOnClickListener(this)
+        texture
         mCameraPermission = CameraPermission(this)
         activity?.let {
             mCamera2 = Camera2(texture, it)

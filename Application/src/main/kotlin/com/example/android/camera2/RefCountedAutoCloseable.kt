@@ -1,4 +1,4 @@
-package com.example.android.camera2raw
+package com.example.android.camera2
 
 /**
  * @author  aqrLei on 2018/8/14
