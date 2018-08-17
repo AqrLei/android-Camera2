@@ -22,7 +22,7 @@ class CameraImage(textureView: AutoFitTextureView, activity: Activity)
 
     private var mPendingUserCaptures: Int = 0
     private var mNoAFRun: Boolean = false
-    private var cameraFlashMode = Camera2.CameraFlashMode.FLASH_OFF
+    private var cameraFlashMode = CameraFlashMode.FLASH_OFF
     private var mJpegImageReader: RefCountedAutoCloseable<ImageReader>? = null
     private val mJpegResultQueue = TreeMap<Int, ImageSaver.ImageSaverBuilder>()
     private val mOnJpegImageAvailableListener = ImageReader.OnImageAvailableListener {
@@ -101,8 +101,29 @@ class CameraImage(textureView: AutoFitTextureView, activity: Activity)
             }
         }
 
-
        // configureAE(builder)
+        val flashMode = when (cameraFlashMode) {
+            CameraFlashMode.FLASH_AUTO -> {
+                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
+            }
+            CameraFlashMode.FLASH_OFF -> {
+                CaptureRequest.FLASH_MODE_OFF
+
+            }
+            CameraFlashMode.FLASH_ON -> {
+                CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH
+            }
+        }
+        if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
+                        flashMode)) {
+            if (flashMode == CaptureRequest.FLASH_MODE_OFF) {
+                builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            }
+            builder.set(CaptureRequest.CONTROL_AE_MODE, flashMode)
+        } else {
+            builder.set(CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON)
+        }
 
         /*auto-white-balance*/
         if (Camera2Utils.contains(mCharacteristics?.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
@@ -113,5 +134,10 @@ class CameraImage(textureView: AutoFitTextureView, activity: Activity)
 
     override fun getOutputSize(map: StreamConfigurationMap): Size {
         return Collections.max(map.getOutputSizes(ImageFormat.JPEG).toList(), Camera2Utils.comparator)
+    }
+
+
+    enum class CameraFlashMode {
+        FLASH_OFF, FLASH_ON, FLASH_AUTO
     }
 }
