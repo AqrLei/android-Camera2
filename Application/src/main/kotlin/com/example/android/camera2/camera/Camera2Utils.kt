@@ -7,7 +7,6 @@ import android.util.Size
 import android.util.SparseIntArray
 import android.view.Surface
 import com.example.android.camera2.image.ImageSaver
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator
 import kotlin.collections.ArrayList
@@ -68,11 +67,6 @@ object Camera2Utils {
                 AsyncTask.THREAD_POOL_EXECUTOR.execute(saver)
             }
         }
-    }
-
-    fun generateTimestamp(): String {
-        val sdf = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.CHINA)
-        return sdf.format(Date())
     }
 
     fun checkAspectsEqual(a: Size, b: Size): Boolean {

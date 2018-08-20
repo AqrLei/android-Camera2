@@ -34,7 +34,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         picture.setOnClickListener(this)
         facing.setOnClickListener(this)
         flash.setOnClickListener(this)
-        texture
         mCameraPermission = CameraPermission(this)
         activity?.let {
             mCamera2 = Camera2(texture, it)
@@ -58,7 +57,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         val options = BitmapFactory.Options()
         options.inJustDecodeBounds = true
        BitmapFactory.decodeFile(path,options)
-        Log.d("test", "width->${options.outWidth}, height->${options.outHeight}, outMimeType->${options.outMimeType}")
     }
 
     override fun onPause() {
@@ -80,20 +78,20 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         }
     }
 
+
     override fun onClick(v: View?) {
         when (v?.id) {
             R.id.picture -> {
                 mCamera2?.takePicture()
             }
             R.id.facing -> {
-                mCamera2?.startRecordingVideo()
-               // mCamera2?.switchFacing()
+               // mCamera2?.startRecordingVideo()
+               mCamera2?.switchFacing()
             }
             R.id.flash -> {
-                mCamera2?.stopRecordingVideo()
-                /*flashModeCount++
+                flashModeCount++
                 val mode = Camera2.CameraFlashMode.values()[flashModeCount % 3]
-                mCamera2?.switchFlash(mode)*/
+                mCamera2?.switchFlash(mode)
             }
         }
     }
