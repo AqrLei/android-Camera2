@@ -86,14 +86,12 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
                 mCamera2?.takePicture()
             }
             R.id.facing -> {
-                mCamera2?.startRecordingVideo()
-               // mCamera2?.switchFacing()
+                mCamera2?.switchFacing()
             }
             R.id.flash -> {
-                mCamera2?.stopRecordingVideo()
-                /*flashModeCount++
+                flashModeCount++
                 val mode = Camera2.CameraFlashMode.values()[flashModeCount % 3]
-                mCamera2?.switchFlash(mode)*/
+                mCamera2?.switchFlash(mode)
             }
         }
     }

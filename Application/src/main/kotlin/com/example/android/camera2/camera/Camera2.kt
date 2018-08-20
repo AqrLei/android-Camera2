@@ -9,7 +9,6 @@ import android.hardware.camera2.*
 import android.hardware.camera2.params.MeteringRectangle
 import android.media.Image
 import android.media.ImageReader
-import android.media.MediaRecorder
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
@@ -19,12 +18,11 @@ import android.view.Surface
 import android.view.TextureView
 import android.widget.Toast
 import com.example.android.camera2.AutoFitTextureView
-import com.example.android.camera2.RefCountedAutoCloseable
 import com.example.android.camera2.image.ImageSaver
+import com.example.android.camera2.RefCountedAutoCloseable
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.launch
 import java.io.File
-import java.io.IOException
 import java.util.*
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -44,9 +42,6 @@ class Camera2(private val textureView: AutoFitTextureView,
         private const val STATE_PREVIEW = 2
         private const val STATE_WAITING_FOR_3A_CONVERGENCE = 3
         private const val STATE_WAITING_FOR_AF = 4
-
-        private const val SENSOR_ORIENTATION_DEFAULT_DEGREES = 90
-        private const val SENSOR_ORIENTATION_INVERSE_DEGREES = 270
     }
 
     private var mCallback: ImageSaver.Callback? = null
@@ -100,7 +95,6 @@ class Camera2(private val textureView: AutoFitTextureView,
 
     private var mCharacteristics: CameraCharacteristics? = null
     private var mCaptureSession: CameraCaptureSession? = null
-    private var mSensorOrientation: Int = 0
 
     private var mPendingUserCaptures: Int = 0
     private var mNoAFRun: Boolean = false
@@ -149,11 +143,6 @@ class Camera2(private val textureView: AutoFitTextureView,
         }
 
     }
-
-
-    private var mMediaRecorder: MediaRecorder? = null
-    private var mVideoSize: Size? = null
-
 
 
     private var mPreviewSize: Size? = null
@@ -341,14 +330,13 @@ class Camera2(private val textureView: AutoFitTextureView,
         synchronized(mCameraStateLock) {
             mCharacteristics?.let {
                 val map = it.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                val largestJpeg = Collections.max(map.getOutputSizes(ImageFormat.JPEG).toList(), Camera2Utils.comparator)
-
-                mVideoSize = Camera2Utils.chooseVideoSize(map.getOutputSizes(MediaRecorder::class.java))
+                val largestJpeg = Collections.max(
+                        map.getOutputSizes(ImageFormat.JPEG).toList(),
+                        Camera2Utils.comparator)
                 val deviceRotation = activity.windowManager.defaultDisplay.rotation
                 val displaySize = Point()
                 activity.windowManager.defaultDisplay.getSize(displaySize)
                 val sensorOrientation = it.get(CameraCharacteristics.SENSOR_ORIENTATION)
-                mSensorOrientation = sensorOrientation
                 val facing = it.get(CameraCharacteristics.LENS_FACING)
                 val totalRotation = Camera2Utils.getOrientation(facing, sensorOrientation, deviceRotation)
                 val swappedDimensions = (totalRotation == 90 || totalRotation == 270)
@@ -404,108 +392,6 @@ class Camera2(private val textureView: AutoFitTextureView,
         }
     }
 
-
-    fun startRecordingVideo() {
-        if (null == mCameraDevice || !textureView.isAvailable || null == mPreviewSize) {
-            return
-        }
-        synchronized(mCameraStateLock) {
-            try {
-                closeSession()
-                setUpMediaRecorder()
-                val texture = textureView.surfaceTexture!!
-                texture.setDefaultBufferSize(mPreviewSize!!.width, mPreviewSize!!.height)
-                mCaptureRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                val surfaces = ArrayList<Surface>()
-
-                // Set up Surface for the camera preview
-                val previewSurface = Surface(texture)
-                surfaces.add(previewSurface)
-                mCaptureRequestBuilder?.addTarget(previewSurface)
-
-                // Set up Surface for the MediaRecorder
-                val recorderSurface = mMediaRecorder!!.surface
-                surfaces.add(recorderSurface)
-                mCaptureRequestBuilder?.addTarget(recorderSurface)
-
-                // Start a capture session
-                // Once the session starts, we can update the UI and start recording
-                mCameraDevice!!.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
-
-                    override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
-                        mCaptureSession = cameraCaptureSession
-                        mCaptureRequestBuilder!!.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
-                        mCaptureSession!!.setRepeatingRequest(mCaptureRequestBuilder!!.build(), null, mBackgroundHandler)
-                        // updatePreview()
-                        launch(UI) {
-                            // UI
-                            /*  mButtonVideo.setText(R.string.stop)
-                          mIsRecordingVideo = true
-
-                          // Start recording*/
-                            mMediaRecorder?.start()
-                        }
-                    }
-
-                    override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) {
-                        Toast.makeText(activity, "Failed", Toast.LENGTH_SHORT).show()
-                    }
-                }, mBackgroundHandler)
-            } catch (e: CameraAccessException) {
-                e.printStackTrace()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
-
-    }
-
-    private fun closeSession() {
-        synchronized(mCameraStateLock) {
-            if (mCaptureSession != null) {
-                mCaptureSession?.close()
-                mCaptureSession = null
-            }
-        }
-    }
-
-    @Throws(IOException::class)
-    private fun setUpMediaRecorder() {
-        synchronized(mCameraStateLock) {
-            mMediaRecorder?.let {
-                if (mVideoSize != null) {
-                    it.setAudioSource(MediaRecorder.AudioSource.MIC)
-                    it.setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                    it.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                    val filePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).toString()
-                    it.setOutputFile(filePath + "/" + System.currentTimeMillis() + ".mp4")
-                    it.setVideoEncodingBitRate(10000000)
-                    it.setVideoFrameRate(30)
-                    it.setVideoSize(mVideoSize!!.width, mVideoSize!!.height)
-                    it.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                    it.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                    val rotation = activity.windowManager.defaultDisplay.rotation
-                    when (mSensorOrientation) {
-                        SENSOR_ORIENTATION_DEFAULT_DEGREES -> it.setOrientationHint(Camera2Utils.defaultOrientations.get(rotation))
-                        SENSOR_ORIENTATION_INVERSE_DEGREES -> it.setOrientationHint(Camera2Utils.inverseOrientations.get(rotation))
-                    }
-                    it.prepare()
-                }
-            }
-
-        }
-    }
-
-    fun stopRecordingVideo() {
-        // UI
-
-        // Stop recording
-        mMediaRecorder?.stop()
-        mMediaRecorder?.reset()
-
-        //startPreview()
-    }
-
     private fun createCameraPreviewSessionLocked() {
         try {
             val surfaceTexture = textureView.surfaceTexture
@@ -516,7 +402,6 @@ class Camera2(private val textureView: AutoFitTextureView,
                     mCaptureRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
                     mCaptureRequestBuilder?.addTarget(surface)
 
-                    mMediaRecorder = MediaRecorder()
                     mCameraDevice!!.createCaptureSession(
                             arrayListOf(surface, mJpegImageReader?.get()?.surface),
                             object : CameraCaptureSession.StateCallback() {
@@ -674,20 +559,14 @@ class Camera2(private val textureView: AutoFitTextureView,
                 CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
             mCaptureRequestBuilder?.let {
                 it.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)
-                recoverPreview()
-            }
-        }
-    }
-
-    private fun recoverPreview() {
-        mCaptureRequestBuilder?.let {
-            setup3AControlsLocked(it)
-            try {
-                mCaptureSession?.setRepeatingRequest(mCaptureRequestBuilder?.build(), mPreCaptureCallback, mBackgroundHandler)
-            } catch (e: CameraAccessException) {
-                e.printStackTrace()
-            } finally {
-                mState = STATE_PREVIEW
+                setup3AControlsLocked(it)
+                try {
+                    mCaptureSession?.setRepeatingRequest(mCaptureRequestBuilder?.build(), mPreCaptureCallback, mBackgroundHandler)
+                } catch (e: CameraAccessException) {
+                    e.printStackTrace()
+                } finally {
+                    mState = STATE_PREVIEW
+                }
             }
         }
     }

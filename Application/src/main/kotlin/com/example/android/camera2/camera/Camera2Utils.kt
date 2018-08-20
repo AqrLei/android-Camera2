@@ -19,18 +19,6 @@ import kotlin.math.sign
 object Camera2Utils {
     private const val ASPECT_RATIO_TOLERANCE = 0.005
     private const val PRE_CAPTURE_TIMEOUT_MS = 1000
-    val defaultOrientations = SparseIntArray().apply {
-        append(Surface.ROTATION_0, 90)
-        append(Surface.ROTATION_90, 0)
-        append(Surface.ROTATION_180, 270)
-        append(Surface.ROTATION_270, 180)
-    }
-    val inverseOrientations = SparseIntArray().apply {
-        append(Surface.ROTATION_0, 270)
-        append(Surface.ROTATION_90, 180)
-        append(Surface.ROTATION_180, 90)
-        append(Surface.ROTATION_270, 0)
-    }
     val orientations = SparseIntArray().apply {
         append(Surface.ROTATION_0, 0)
         append(Surface.ROTATION_90, 90)
@@ -43,13 +31,6 @@ object Camera2Utils {
     }
 
     private var captureTimer: Long = 0
-
-    fun chooseVideoSize(choices: Array<Size>): Size {
-        choices.forEach {
-            if (it.width == it.height * 4 / 3) return it
-        }
-        return choices[choices.size - 1]
-    }
 
     fun contains(modes: IntArray?, mode: Int): Boolean {
         if (modes == null) return false
