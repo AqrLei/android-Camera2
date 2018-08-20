@@ -10,7 +10,6 @@ import android.hardware.camera2.params.MeteringRectangle
 import android.media.Image
 import android.media.ImageReader
 import android.media.MediaRecorder
-import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Size
@@ -21,9 +20,9 @@ import android.widget.Toast
 import com.example.android.camera2.AutoFitTextureView
 import com.example.android.camera2.RefCountedAutoCloseable
 import com.example.android.camera2.image.ImageSaver
+import com.example.android.camera2.util.StorageUtil
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.launch
-import java.io.File
 import java.io.IOException
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -108,10 +107,7 @@ class Camera2(private val textureView: AutoFitTextureView,
     }
     private val mCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureStarted(session: CameraCaptureSession, request: CaptureRequest, timestamp: Long, frameNumber: Long) {
-            val currentDateTime = Camera2Utils.generateTimestamp()
-            val jpegFile = File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
-                    "JPEG_$currentDateTime.jpg")
+            val jpegFile = StorageUtil.getStorageFile(StorageUtil.FileType.PICTURE)
             val requestId = request.tag as Int
             var jpegBuilder: ImageSaver.ImageSaverBuilder? = null
             synchronized(mCameraStateLock) {
@@ -414,31 +410,21 @@ class Camera2(private val textureView: AutoFitTextureView,
                 mCaptureRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                 val surfaces = ArrayList<Surface>()
 
-                // Set up Surface for the camera preview
                 val previewSurface = Surface(texture)
                 surfaces.add(previewSurface)
                 mCaptureRequestBuilder?.addTarget(previewSurface)
 
-                // Set up Surface for the MediaRecorder
                 val recorderSurface = mMediaRecorder!!.surface
                 surfaces.add(recorderSurface)
                 mCaptureRequestBuilder?.addTarget(recorderSurface)
 
-                // Start a capture session
-                // Once the session starts, we can update the UI and start recording
                 mCameraDevice!!.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
 
                     override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
                         mCaptureSession = cameraCaptureSession
                         mCaptureRequestBuilder!!.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
                         mCaptureSession!!.setRepeatingRequest(mCaptureRequestBuilder!!.build(), null, mBackgroundHandler)
-                        // updatePreview()
                         launch(UI) {
-                            // UI
-                            /*  mButtonVideo.setText(R.string.stop)
-                          mIsRecordingVideo = true
-
-                          // Start recording*/
                             mMediaRecorder?.start()
                         }
                     }
@@ -473,8 +459,8 @@ class Camera2(private val textureView: AutoFitTextureView,
                     it.setAudioSource(MediaRecorder.AudioSource.MIC)
                     it.setVideoSource(MediaRecorder.VideoSource.SURFACE)
                     it.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                    val filePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).toString()
-                    it.setOutputFile(filePath + "/" + System.currentTimeMillis() + ".mp4")
+                    val file = StorageUtil.getStorageFile(StorageUtil.FileType.VIDEO)
+                    it.setOutputFile(file.absolutePath)
                     it.setVideoEncodingBitRate(10000000)
                     it.setVideoFrameRate(30)
                     it.setVideoSize(mVideoSize!!.width, mVideoSize!!.height)
