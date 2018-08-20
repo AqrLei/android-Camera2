@@ -401,6 +401,7 @@ class Camera2(private val textureView: AutoFitTextureView,
         if (null == mCameraDevice || !textureView.isAvailable || null == mPreviewSize) {
             return
         }
+        Camera2Utils.startTimeLocked()
         synchronized(mCameraStateLock) {
             try {
                 closeSession()
@@ -456,22 +457,26 @@ class Camera2(private val textureView: AutoFitTextureView,
         synchronized(mCameraStateLock) {
             mMediaRecorder?.let {
                 if (mVideoSize != null) {
-                    it.setAudioSource(MediaRecorder.AudioSource.MIC)
-                    it.setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                    it.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                    val file = StorageUtil.getStorageFile(StorageUtil.FileType.VIDEO)
-                    it.setOutputFile(file.absolutePath)
-                    it.setVideoEncodingBitRate(10000000)
-                    it.setVideoFrameRate(30)
-                    it.setVideoSize(mVideoSize!!.width, mVideoSize!!.height)
-                    it.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                    it.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                    val rotation = activity.windowManager.defaultDisplay.rotation
-                    when (mSensorOrientation) {
-                        SENSOR_ORIENTATION_DEFAULT_DEGREES -> it.setOrientationHint(Camera2Utils.defaultOrientations.get(rotation))
-                        SENSOR_ORIENTATION_INVERSE_DEGREES -> it.setOrientationHint(Camera2Utils.inverseOrientations.get(rotation))
+                    try {
+                        it.setAudioSource(MediaRecorder.AudioSource.MIC)
+                        it.setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                        it.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                        val file = StorageUtil.getStorageFile(StorageUtil.FileType.VIDEO)
+                        it.setOutputFile(file.absolutePath)
+                        it.setVideoEncodingBitRate(10000000)
+                        it.setVideoFrameRate(30)
+                        it.setVideoSize(mVideoSize!!.width, mVideoSize!!.height)
+                        it.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                        it.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                        val rotation = activity.windowManager.defaultDisplay.rotation
+                        when (mSensorOrientation) {
+                            SENSOR_ORIENTATION_DEFAULT_DEGREES -> it.setOrientationHint(Camera2Utils.defaultOrientations.get(rotation))
+                            SENSOR_ORIENTATION_INVERSE_DEGREES -> it.setOrientationHint(Camera2Utils.inverseOrientations.get(rotation))
+                        }
+                        it.prepare()
+                    } catch (e: IllegalStateException) {
+                        e.printStackTrace()
                     }
-                    it.prepare()
                 }
             }
 
@@ -479,12 +484,17 @@ class Camera2(private val textureView: AutoFitTextureView,
     }
 
     fun stopRecordingVideo() {
-        if (mCameraDevice != null && textureView.isAvailable) {
-            createCameraPreviewSessionLocked()
+        if (Camera2Utils.hitTimeoutLocked()) {
+            if (mCameraDevice != null && textureView.isAvailable) {
+                createCameraPreviewSessionLocked()
+            }
+            try {
+                mMediaRecorder?.stop()
+                mMediaRecorder?.reset()
+            } catch (e: IllegalStateException) {
+                e.printStackTrace()
+            }
         }
-        mMediaRecorder?.stop()
-        mMediaRecorder?.reset()
-
     }
 
 

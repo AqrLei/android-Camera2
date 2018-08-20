@@ -4,7 +4,6 @@ import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.support.v4.app.Fragment
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -24,6 +23,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
     private lateinit var mCameraPermission: CameraPermission
     private var mCamera2: Camera2? = null
     private var flashModeCount: Int = 0
+    private var mIsRecording: Boolean = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_camera2_basic, container, false)
@@ -34,6 +34,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         picture.setOnClickListener(this)
         facing.setOnClickListener(this)
         flash.setOnClickListener(this)
+        record.setOnClickListener(this)
         mCameraPermission = CameraPermission(this)
         activity?.let {
             mCamera2 = Camera2(texture, it)
@@ -53,10 +54,11 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
     override fun onGetByteArray(byteArray: ByteArray) {
 
     }
+
     override fun onSaveCompleted(path: String?) {
         val options = BitmapFactory.Options()
         options.inJustDecodeBounds = true
-       BitmapFactory.decodeFile(path,options)
+        BitmapFactory.decodeFile(path, options)
     }
 
     override fun onPause() {
@@ -85,13 +87,23 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
                 mCamera2?.takePicture()
             }
             R.id.facing -> {
-               // mCamera2?.startRecordingVideo()
-               mCamera2?.switchFacing()
+                mCamera2?.switchFacing()
             }
             R.id.flash -> {
                 flashModeCount++
                 val mode = Camera2.CameraFlashMode.values()[flashModeCount % 3]
                 mCamera2?.switchFlash(mode)
+            }
+            R.id.record -> {
+                mIsRecording = if (mIsRecording) {
+                    mCamera2?.stopRecordingVideo()
+                    record.text = "Record"
+                    false
+                } else {
+                    mCamera2?.startRecordingVideo()
+                    record.text = "Stop"
+                    true
+                }
             }
         }
     }

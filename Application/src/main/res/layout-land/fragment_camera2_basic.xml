@@ -14,6 +14,7 @@
  limitations under the License.
 -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -25,7 +26,7 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true" />
 
-    <FrameLayout
+    <android.support.constraint.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -36,31 +37,47 @@
         android:background="#4285f4"
         android:orientation="horizontal">
 
+
         <Button
             android:id="@+id/flash"
             style="@android:style/Widget.Material.Light.Button.Borderless"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|center_horizontal"
-            android:text="Flash" />
+            android:text="Flash"
+            app:layout_constraintLeft_toRightOf="@+id/facing"
+            app:layout_constraintRight_toRightOf="parent" />
+
+        <Button
+            android:id="@+id/facing"
+            style="@android:style/Widget.Material.Light.Button.Borderless"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:padding="20dp"
+            android:text="Facing"
+            app:layout_constraintHorizontal_chainStyle="spread_inside"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toLeftOf="@+id/flash" />
 
         <Button
             android:id="@+id/picture"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="@string/picture" />
+            android:text="@string/picture"
+            app:layout_constraintBottom_toTopOf="@+id/record"
+            app:layout_constraintHorizontal_chainStyle="spread_inside"
+            app:layout_constraintTop_toBottomOf="@+id/facing" />
 
         <Button
-            android:id="@+id/facing"
-            style="@android:style/Widget.Material.Light.Button.Borderless"
+            android:id="@+id/record"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal|bottom"
-            android:padding="20dp"
-            android:text="Facing" />
+            android:layout_gravity="center"
+            android:text="Record"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/picture" />
 
 
-    </FrameLayout>
+    </android.support.constraint.ConstraintLayout>
 
 </RelativeLayout>
