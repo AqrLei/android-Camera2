@@ -50,14 +50,13 @@ class Camera2(private val textureView: AutoFitTextureView,
     private val mCameraOpenCloseLock = Semaphore(1)
     private val mRequestCounter = AtomicInteger(0)
     private var mState: Int = STATE_CLOSED
-
-
-
+    private var mPendingUserCaptures: Int = 0
+    private var mNoAFRun: Boolean = false
 
     private var mBackgroundThread: HandlerThread? = null
     private var mBackgroundHandler: Handler? = null
 
-
+    private var cameraFlashMode = CameraFlashMode.FLASH_OFF
 
     private var mCameraFacing = CameraFacing.CAMERA_FACING_BACK
     private var mCameraDevice: CameraDevice? = null
@@ -96,9 +95,8 @@ class Camera2(private val textureView: AutoFitTextureView,
     private var mCharacteristics: CameraCharacteristics? = null
     private var mCaptureSession: CameraCaptureSession? = null
 
-    private var mPendingUserCaptures: Int = 0
-    private var mNoAFRun: Boolean = false
-    private var cameraFlashMode = CameraFlashMode.FLASH_OFF
+
+
     private var mJpegImageReader: RefCountedAutoCloseable<ImageReader>? = null
     private val mJpegResultQueue = TreeMap<Int, ImageSaver.ImageSaverBuilder>()
     private val mOnJpegImageAvailableListener = ImageReader.OnImageAvailableListener {
@@ -143,6 +141,7 @@ class Camera2(private val textureView: AutoFitTextureView,
         }
 
     }
+
 
 
     private var mPreviewSize: Size? = null
@@ -289,8 +288,6 @@ class Camera2(private val textureView: AutoFitTextureView,
 
     }
 
-
-
     private fun setUpCameraOutputs(): Boolean {
         val manager = activity.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
         if (manager == null) {
@@ -303,7 +300,9 @@ class Camera2(private val textureView: AutoFitTextureView,
             if (manager.cameraIdList.isNotEmpty() && manager.cameraIdList.size > 1) {
                 val characteristics = manager.getCameraCharacteristics(mCameraFacing.facing)
                 val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                val largestJpeg = Collections.max(map.getOutputSizes(ImageFormat.JPEG).toList(), Camera2Utils.comparator)
+                val largestJpeg = Collections.max(
+                        map.getOutputSizes(ImageFormat.JPEG).toList(),
+                        Camera2Utils.comparator)
                 synchronized(mCameraStateLock) {
                     if (mJpegImageReader?.getAndRetain() == null) {
                         mJpegImageReader = RefCountedAutoCloseable(ImageReader.newInstance(largestJpeg.width,
@@ -324,7 +323,6 @@ class Camera2(private val textureView: AutoFitTextureView,
         return false
 
     }
-
 
     private fun configureTransform(viewWidth: Int, viewHeight: Int) {
         synchronized(mCameraStateLock) {
@@ -391,7 +389,6 @@ class Camera2(private val textureView: AutoFitTextureView,
             }
         }
     }
-
     private fun createCameraPreviewSessionLocked() {
         try {
             val surfaceTexture = textureView.surfaceTexture
@@ -401,7 +398,6 @@ class Camera2(private val textureView: AutoFitTextureView,
                 if (mCameraDevice != null) {
                     mCaptureRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
                     mCaptureRequestBuilder?.addTarget(surface)
-
                     mCameraDevice!!.createCaptureSession(
                             arrayListOf(surface, mJpegImageReader?.get()?.surface),
                             object : CameraCaptureSession.StateCallback() {
