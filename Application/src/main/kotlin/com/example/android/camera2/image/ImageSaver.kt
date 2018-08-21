@@ -8,6 +8,7 @@ import android.media.ImageReader
 import android.media.MediaScannerConnection
 import android.net.Uri
 import com.example.android.camera2.RefCountedAutoCloseable
+import com.example.android.camera2.camera.Camera2
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -20,7 +21,7 @@ class ImageSaver private constructor(
         private val file: File,
         private val context: Context,
         private val reader: RefCountedAutoCloseable<ImageReader>,
-        private val callback: Callback? = null) : Runnable {
+        private val callback: Camera2.Callback? = null) : Runnable {
     override fun run() {
         var success = false
         val format = image.format
@@ -29,7 +30,6 @@ class ImageSaver private constructor(
                 val buffer = image.planes[0].buffer
                 val bytes = ByteArray(buffer.remaining())
                 buffer.get(bytes)
-                callback?.onGetByteArray(bytes)
                 var output: FileOutputStream? = null
                 try {
                     output = FileOutputStream(file)
@@ -74,7 +74,7 @@ class ImageSaver private constructor(
     class ImageSaverBuilder(private val mContext: Context) {
         private var mImage: Image? = null
         private var mFile: File? = null
-        private var mCallback: Callback? = null
+        private var mCallback: Camera2.Callback? = null
         private lateinit var mReader: RefCountedAutoCloseable<ImageReader>
 
         val saveLocation: String
@@ -112,14 +112,10 @@ class ImageSaver private constructor(
         }
 
         @Synchronized
-        fun setCallback(callback: Callback?) {
+        fun setCallback(callback: Camera2.Callback?) {
             mCallback = callback
 
         }
     }
 
-    interface Callback {
-        fun onGetByteArray(byteArray:ByteArray)
-        fun onSaveCompleted(path: String?)
-    }
 }

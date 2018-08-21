@@ -15,7 +15,7 @@ import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 /**
  * @author  aqrLei on 2018/8/13
  */
-class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
+class Camera2Fragment : Fragment(), View.OnClickListener, Camera2.Callback {
     companion object {
         fun newInstance() = Camera2Fragment()
     }
@@ -39,6 +39,9 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         activity?.let {
             mCamera2 = Camera2(texture, it)
             mCamera2?.setCallback(this)
+            mCamera2?.setFacingChangeListener {
+                record.text = if (mCamera2!!.isRecord) "Stop" else "Record"
+            }
         }
     }
 
@@ -49,10 +52,6 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
         } else {
             mCamera2?.start()
         }
-    }
-
-    override fun onGetByteArray(byteArray: ByteArray) {
-
     }
 
     override fun onSaveCompleted(path: String?) {
@@ -96,14 +95,11 @@ class Camera2Fragment : Fragment(), View.OnClickListener, ImageSaver.Callback {
             }
             R.id.record -> {
                 mIsRecording = if (mIsRecording) {
-                    mCamera2?.stopRecordingVideo()
-                    record.text = "Record"
-                    false
+                    mCamera2?.stopRecordingVideo()?:false
                 } else {
-                    mCamera2?.startRecordingVideo()
-                    record.text = "Stop"
-                    true
+                    mCamera2?.startRecordingVideo()?:false
                 }
+                record.text = if(mIsRecording) "Stop" else "Record"
             }
         }
     }
