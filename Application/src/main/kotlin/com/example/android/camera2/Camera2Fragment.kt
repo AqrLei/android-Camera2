@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.example.android.camera2.camera.Camera2
-import com.example.android.camera2.image.ImageSaver
 import com.example.android.camera2.permission.CameraPermission
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 
@@ -40,6 +39,7 @@ class Camera2Fragment : Fragment(), View.OnClickListener, Camera2.Callback {
             mCamera2 = Camera2(texture, it)
             mCamera2?.setCallback(this)
             mCamera2?.setFacingChangeListener {
+                mIsRecording = mCamera2!!.isRecord
                 record.text = if (mCamera2!!.isRecord) "Stop" else "Record"
             }
         }
@@ -95,11 +95,11 @@ class Camera2Fragment : Fragment(), View.OnClickListener, Camera2.Callback {
             }
             R.id.record -> {
                 mIsRecording = if (mIsRecording) {
-                    mCamera2?.stopRecordingVideo()?:false
+                    mCamera2?.stopRecordingVideo() ?: false
                 } else {
-                    mCamera2?.startRecordingVideo()?:false
+                    mCamera2?.startRecordingVideo() ?: false
                 }
-                record.text = if(mIsRecording) "Stop" else "Record"
+                record.text = if (mIsRecording) "Stop" else "Record"
             }
         }
     }

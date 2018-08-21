@@ -560,8 +560,10 @@ class Camera2(private val textureView: AutoFitTextureView,
                     mJpegImageReader = null
                 }
                 if (null != mMediaRecorder) {
-                    mMediaRecorder?.stop()
-                    mMediaRecorder?.release()
+                    if (isRecord) {
+                        mMediaRecorder?.stop()
+                        mMediaRecorder?.release()
+                    }
                     mMediaRecorder = null
                     isRecord = false
                 }
@@ -740,9 +742,9 @@ class Camera2(private val textureView: AutoFitTextureView,
                 CameraFacing.CAMERA_FACING_BACK
             }
         }
-        mListener?.onFacingChange()
         release()
         openCamera()
+        mListener?.onFacingChange()
     }
 
     fun switchFlash(flashMode: CameraFlashMode) {
