@@ -7,11 +7,13 @@ Android Camera2 Sample
 
 [1]: https://github.com/googlesamples/android-Camera2Raw
 [2]: https://github.com/googlesamples/android-Camera2Video
+
 Introduction
 ------------
 
  [Camera2 API][4]
  预览通过[TextureView][5]来实现，图片的保存使用了[ImageReader][6],录像则是用了[MediaRecorder][7]
+
 [3]: http://kotlinlang.org/docs/reference/
 [4]: https://developer.android.com/reference/android/hardware/camera2/package-summary.html
 [5]: https://developer.android.google.cn/reference/android/view/TextureView
