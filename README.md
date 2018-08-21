@@ -1,39 +1,35 @@
 
-Android Camera2Raw Sample
+Android Camera2 Sample
 ===================================
 
-This sample demonstrates using the Camera2 API to capture a JPEG sensor frame.
-Check the source code to see a typical example of how to display the camera preview;
-run auto-focus, auto-exposure metering, and auto-white-balance; capture a JPEG 
-image for the same sensor frame; and save these into MediaStore for use in other
-applications.
+这个例子是基于[android-Camera2Raw][1]和[android-Camera2Video][2],通过[Kotlin][3]改写而成的，实现了预览、拍照
+、录像、切换摄像头以及更换曝光模式等。
 
+[1]: https://github.com/googlesamples/android-Camera2Raw
+[2]: https://github.com/googlesamples/android-Camera2Video
 Introduction
 ------------
 
-The [Camera2 API][1] allows users to capture RAW images, i.e. unprocessed pixel data
-directly from the camera sensor that has not yet been converted into a format and
-colorspace typically used for displaying and storing images viewed by humans.  The
-[DngCreator][2] class is provided as part of the Camera2 API as a utility for saving
-RAW images as DNG files.
-
-This sample displays a live camera preview in a TextureView, and saves JPEG 
-for each image captured.
-
-[1]: https://developer.android.com/reference/android/hardware/camera2/package-summary.html
-[2]: https://developer.android.com/reference/android/hardware/camera2/DngCreator.html
+ [Camera2 API][4]
+ 预览通过[TextureView][5]来实现，图片的保存使用了[ImageReader][6],录像则是用了[MediaRecorder][7]
+[3]: http://kotlinlang.org/docs/reference/
+[4]: https://developer.android.com/reference/android/hardware/camera2/package-summary.html
+[5]: https://developer.android.google.cn/reference/android/view/TextureView
+[6]: https://developer.android.google.cn/reference/android/media/ImageReader
+[7]: https://developer.android.google.cn/reference/android/media/MediaRecorder
 
 Pre-requisites
 --------------
 
-- Android SDK 27
-- Android Build Tools v27.0.2
-- Android Support Repository
+- Android SDK 21~27
+- Kotlin v1.2.61
+- Android Build Tools v27.0.3
+- Android Support Repository v27.1.1
 
 Screenshots
 -------------
 
-<img src="screenshots/main.png" height="400" alt="Screenshot"/> 
+<img src="screenshots/main.png" height="400" alt="Screenshot"/>
 
 Getting Started
 ---------------
@@ -48,7 +44,7 @@ Support
 - Stack Overflow: http://stackoverflow.com/questions/tagged/android
 
 If you've found an error in this sample, please file an issue:
-https://github.com/googlesamples/android-Camera2Raw
+https://github.com/AqrLei/android-Camera2
 
 Patches are encouraged, and may be submitted by forking this project and
 submitting a pull request through GitHub. Please see CONTRIBUTING.md for more details.
