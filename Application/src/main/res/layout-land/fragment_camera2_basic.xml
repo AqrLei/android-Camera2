@@ -24,36 +24,39 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentStart="true"
+        android:layout_above="@+id/controllerCl"
+        android:layout_toStartOf="@+id/controllerCl"
         android:layout_alignParentTop="true" />
 
     <android.support.constraint.ConstraintLayout
-        android:layout_width="match_parent"
+        android:id="@+id/controllerCl"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_alignParentTop="true"
-        android:layout_below="@id/texture"
-        android:layout_toEndOf="@id/texture"
-        android:background="#4285f4"
-        android:orientation="horizontal">
+        android:background="#4285f4">
 
 
         <Button
             android:id="@+id/flash"
             style="@android:style/Widget.Material.Light.Button.Borderless"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Flash"
+            android:padding="20dp"
+            android:maxLines="1"
             app:layout_constraintLeft_toRightOf="@+id/facing"
             app:layout_constraintRight_toRightOf="parent" />
 
         <Button
             android:id="@+id/facing"
             style="@android:style/Widget.Material.Light.Button.Borderless"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="20dp"
             android:text="Facing"
+            android:maxLines="1"
             app:layout_constraintHorizontal_chainStyle="spread_inside"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toLeftOf="@+id/flash" />

@@ -21,17 +21,18 @@
 
     <com.example.android.camera2.AutoFitTextureView
         android:id="@+id/texture"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_above="@+id/controllerCl"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true" />
 
     <android.support.constraint.ConstraintLayout
+        android:id="@+id/controllerCl"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentStart="true"
-        android:layout_below="@id/texture"
         android:background="#4285f4">
 
 
